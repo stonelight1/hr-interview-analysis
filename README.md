@@ -10,6 +10,52 @@
 
 ## 快速启动
 
+### 一键启动
+
+Windows:
+
+```bat
+scripts\windows\start.bat
+```
+
+macOS/Linux:
+
+```bash
+./scripts/unix/start.sh
+```
+
+脚本会自动创建后端虚拟环境、安装缺失依赖、启动后端和前端，并把 pid 与日志写入 `.run/`。
+
+脚本目录：
+
+- `scripts/windows/`: Windows PowerShell 和 bat 启停脚本
+- `scripts/unix/`: macOS/Linux shell 启停脚本
+
+Windows 常用命令：
+
+```bat
+scripts\windows\start-backend.bat
+scripts\windows\start-frontend.bat
+scripts\windows\stop.bat
+scripts\windows\start.bat -NoInstall
+```
+
+macOS/Linux 常用命令：
+
+```bash
+# 只启动后端
+./scripts/unix/start.sh --backend-only
+
+# 只启动前端
+./scripts/unix/start.sh --frontend-only
+
+# 已安装过依赖时跳过依赖安装
+./scripts/unix/start.sh --no-install
+
+# 停止全部服务
+./scripts/unix/stop.sh
+```
+
 ### 后端
 
 ```bash

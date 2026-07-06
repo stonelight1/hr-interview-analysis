@@ -11,6 +11,7 @@ test-results/
 
 # Local logs
 *.log
+/.run/
 /.claude/
 
 # Python
