@@ -51,6 +51,14 @@ export const jobsApi = {
 
   delete(id) {
     return api.delete(`/jobs/${id}`)
+  },
+
+  getJobTypes() {
+    return api.get('/job-types')
+  },
+
+  parseJD(data) {
+    return api.post('/jobs/parse-jd', data)
   }
 }
 
@@ -78,6 +86,10 @@ export const candidatesApi = {
 
   delete(id) {
     return api.delete(`/candidates/${id}`)
+  },
+
+  parseResume(data) {
+    return api.post('/candidates/parse-resume', data)
   }
 }
 
@@ -115,6 +127,32 @@ export const firstInterviewAnalysisApi = {
 
   getLatest(candidateId) {
     return api.get(`/candidates/${candidateId}/first-interview-analysis/latest`)
+  }
+}
+
+// ============== 复试记录接口 ==============
+export const secondInterviewRecordApi = {
+  create(candidateId, data) {
+    return api.post(`/candidates/${candidateId}/second-interview-record`, data)
+  },
+
+  getLatest(candidateId) {
+    return api.get(`/candidates/${candidateId}/second-interview-record/latest`)
+  },
+
+  list(candidateId, params) {
+    return api.get(`/candidates/${candidateId}/second-interview-record`, { params })
+  }
+}
+
+// ============== 复试分析接口 ==============
+export const secondInterviewAnalysisApi = {
+  trigger(candidateId, data = { interview_record_id: null, force: false, request_id: null }) {
+    return api.post(`/candidates/${candidateId}/second-interview-analysis`, data)
+  },
+
+  getLatest(candidateId) {
+    return api.get(`/candidates/${candidateId}/second-interview-analysis/latest`)
   }
 }
 

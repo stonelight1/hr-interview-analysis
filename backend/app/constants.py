@@ -4,6 +4,56 @@ JOB_STATUS_PAUSED = "PAUSED"
 JOB_STATUS_CLOSED = "CLOSED"
 VALID_JOB_STATUSES = {JOB_STATUS_OPEN, JOB_STATUS_PAUSED, JOB_STATUS_CLOSED}
 
+# ============== Job Type（岗位类型） ==============
+JOB_TYPE_SALES = "销售业务类"
+JOB_TYPE_ECOMMERCE = "电商运营类"
+JOB_TYPE_CUSTOMER_SERVICE = "客服售后类"
+JOB_TYPE_ADMIN_HR = "行政人事类"
+JOB_TYPE_FINANCE = "财务出纳类"
+JOB_TYPE_WAREHOUSE = "仓储物流类"
+JOB_TYPE_INSTALLATION = "安装维修类"
+JOB_TYPE_ENTRY_LEVEL_MGMT = "基层管理类"
+JOB_TYPE_GENERAL = "通用岗位类"
+
+VALID_JOB_TYPES = {
+    JOB_TYPE_SALES,
+    JOB_TYPE_ECOMMERCE,
+    JOB_TYPE_CUSTOMER_SERVICE,
+    JOB_TYPE_ADMIN_HR,
+    JOB_TYPE_FINANCE,
+    JOB_TYPE_WAREHOUSE,
+    JOB_TYPE_INSTALLATION,
+    JOB_TYPE_ENTRY_LEVEL_MGMT,
+    JOB_TYPE_GENERAL,
+}
+
+# 岗位类型评估重点
+JOB_TYPE_EVALUATION_FOCUS = {
+    JOB_TYPE_SALES: [
+        "销售经验", "客户开发能力", "沟通谈判能力", "抗压能力",
+        "业绩意识", "客户维护能力", "稳定性"
+    ],
+    JOB_TYPE_CUSTOMER_SERVICE: [
+        "沟通表达能力", "情绪稳定性", "服务意识", "投诉处理能力",
+        "平台工具使用经验", "耐心程度", "抗压能力"
+    ],
+    JOB_TYPE_ADMIN_HR: [
+        "细心程度", "执行力", "沟通协调能力", "文档整理能力",
+        "服务意识", "保密意识", "办公软件能力", "事务跟进能力", "稳定性"
+    ],
+    JOB_TYPE_FINANCE: [
+        "财务基础", "数据准确性", "Excel能力", "票据处理经验",
+        "原则性", "保密意识", "细心程度", "稳定性"
+    ],
+    JOB_TYPE_WAREHOUSE: [
+        "吃苦耐劳", "责任心", "库存管理经验", "发货准确性",
+        "异常处理能力", "服从安排", "稳定性"
+    ],
+    JOB_TYPE_GENERAL: [
+        "学习能力", "沟通能力", "责任心", "团队协作", "稳定性"
+    ],
+}
+
 # ============== Candidate Status ==============
 STATUS_IMPORTED = "IMPORTED"
 STATUS_RESUME_PENDING = "RESUME_PENDING"

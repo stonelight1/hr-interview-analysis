@@ -68,6 +68,14 @@ class JobCreate(BaseModel):
     jd_text: str = Field(..., min_length=1)
     remark: Optional[str] = None
 
+    # 新增：岗位类型和扩展字段
+    job_type: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=100)
+    salary_range: Optional[str] = Field(None, max_length=50)
+    education_req: Optional[str] = Field(None, max_length=50)
+    experience_req: Optional[str] = Field(None, max_length=50)
+    parsed_jd_json: Optional[str] = None  # AI 解析后的结构化 JD
+
 
 class JobUpdate(BaseModel):
     job_name: str = Field(..., min_length=1, max_length=100)
@@ -75,6 +83,14 @@ class JobUpdate(BaseModel):
     headcount: int = Field(..., ge=1, le=999)
     jd_text: str = Field(..., min_length=1)
     remark: Optional[str] = None
+
+    # 新增：岗位类型和扩展字段
+    job_type: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=100)
+    salary_range: Optional[str] = Field(None, max_length=50)
+    education_req: Optional[str] = Field(None, max_length=50)
+    experience_req: Optional[str] = Field(None, max_length=50)
+    parsed_jd_json: Optional[str] = None
 
 
 class JobStatusUpdate(BaseModel):
@@ -87,6 +103,9 @@ class JobResponse(BaseModel):
     department: str
     headcount: int
     status: str
+    job_type: Optional[str] = None  # 新增
+    location: Optional[str] = None  # 新增
+    salary_range: Optional[str] = None  # 新增
     created_at: datetime
 
     class Config:
@@ -96,6 +115,9 @@ class JobResponse(BaseModel):
 class JobDetailResponse(JobResponse):
     jd_text: str
     remark: Optional[str] = None
+    education_req: Optional[str] = None  # 新增
+    experience_req: Optional[str] = None  # 新增
+    parsed_jd_json: Optional[str] = None  # 新增
     updated_at: datetime
 
     class Config:
@@ -129,6 +151,20 @@ class CandidateCreate(BaseModel):
     resume_text: str = Field(..., min_length=1)
     remark: Optional[str] = None
 
+    # 新增：结构化简历字段（AI 解析后填充）
+    gender: Optional[str] = Field(None, max_length=10)
+    age: Optional[int] = Field(None, ge=18, le=100)
+    current_city: Optional[str] = Field(None, max_length=50)
+    expected_city: Optional[str] = Field(None, max_length=50)
+    job_search_status: Optional[str] = Field(None, max_length=50)
+    available_date: Optional[str] = Field(None, max_length=50)
+    expected_salary: Optional[str] = Field(None, max_length=50)
+    education_level: Optional[str] = Field(None, max_length=50)
+    graduation_school: Optional[str] = Field(None, max_length=100)
+    major: Optional[str] = Field(None, max_length=100)
+    work_years: Optional[int] = Field(None, ge=0, le=50)
+    parsed_resume_json: Optional[str] = None
+
 
 class CandidateUpdate(BaseModel):
     candidate_name: str = Field(..., min_length=1, max_length=100)
@@ -137,6 +173,20 @@ class CandidateUpdate(BaseModel):
     source: Optional[str] = Field(None, max_length=50)
     resume_text: str = Field(..., min_length=1)
     remark: Optional[str] = None
+
+    # 新增：结构化简历字段
+    gender: Optional[str] = Field(None, max_length=10)
+    age: Optional[int] = Field(None, ge=18, le=100)
+    current_city: Optional[str] = Field(None, max_length=50)
+    expected_city: Optional[str] = Field(None, max_length=50)
+    job_search_status: Optional[str] = Field(None, max_length=50)
+    available_date: Optional[str] = Field(None, max_length=50)
+    expected_salary: Optional[str] = Field(None, max_length=50)
+    education_level: Optional[str] = Field(None, max_length=50)
+    graduation_school: Optional[str] = Field(None, max_length=100)
+    major: Optional[str] = Field(None, max_length=100)
+    work_years: Optional[int] = Field(None, ge=0, le=50)
+    parsed_resume_json: Optional[str] = None
 
 
 class CandidateStatusUpdate(BaseModel):
@@ -157,6 +207,16 @@ class CandidateResponse(BaseModel):
     first_interview_score: Optional[int] = None
     second_interview_score: Optional[int] = None
     latest_ai_suggestion: Optional[str] = None
+    # 新增：结构化简历字段
+    gender: Optional[str] = None
+    age: Optional[int] = None
+    current_city: Optional[str] = None
+    expected_city: Optional[str] = None
+    education_level: Optional[str] = None
+    graduation_school: Optional[str] = None
+    major: Optional[str] = None
+    work_years: Optional[int] = None
+    expected_salary: Optional[str] = None
     updated_at: datetime
 
     class Config:
@@ -169,6 +229,10 @@ class CandidateDetailResponse(CandidateResponse):
     created_at: datetime
     job_name: Optional[str] = None
     department: Optional[str] = None
+    job_type: Optional[str] = None  # 新增：关联岗位的类型
+    parsed_resume_json: Optional[str] = None  # 新增：AI 解析后的结构化简历 JSON
+    available_date: Optional[str] = None  # 新增
+    job_search_status: Optional[str] = None  # 新增
 
     class Config:
         from_attributes = True
@@ -199,6 +263,16 @@ class StageReportResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ParseJDRequest(BaseModel):
+    """JD 解析请求"""
+    jd_text: str = Field(..., min_length=1)
+
+
+class ParseResumeRequest(BaseModel):
+    """简历解析请求"""
+    resume_text: str = Field(..., min_length=1)
 
 
 class ResumeScreeningRequest(BaseModel):

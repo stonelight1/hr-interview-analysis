@@ -15,6 +15,14 @@ def create_job(db: Session, data: dict) -> Job:
         jd_text=data["jd_text"],
         status=constants.JOB_STATUS_OPEN,
         remark=data.get("remark"),
+
+        # 新增字段
+        job_type=data.get("job_type"),
+        location=data.get("location"),
+        salary_range=data.get("salary_range"),
+        education_req=data.get("education_req"),
+        experience_req=data.get("experience_req"),
+        parsed_jd_json=data.get("parsed_jd_json"),
     )
     db.add(db_job)
     db.commit()
@@ -60,6 +68,15 @@ def update_job(db: Session, job_id: int, data: dict) -> Optional[Job]:
     db_job.headcount = data["headcount"]
     db_job.jd_text = data["jd_text"]
     db_job.remark = data.get("remark")
+
+    # 新增字段
+    db_job.job_type = data.get("job_type")
+    db_job.location = data.get("location")
+    db_job.salary_range = data.get("salary_range")
+    db_job.education_req = data.get("education_req")
+    db_job.experience_req = data.get("experience_req")
+    db_job.parsed_jd_json = data.get("parsed_jd_json")
+
     db_job.updated_at = datetime.now()
 
     db.commit()
@@ -105,6 +122,20 @@ def create_candidate(db: Session, data: dict) -> Candidate:
         resume_text=data["resume_text"],
         current_status=constants.STATUS_RESUME_PENDING,
         remark=data.get("remark"),
+
+        # 新增结构化简历字段
+        gender=data.get("gender"),
+        age=data.get("age"),
+        current_city=data.get("current_city"),
+        expected_city=data.get("expected_city"),
+        job_search_status=data.get("job_search_status"),
+        available_date=data.get("available_date"),
+        expected_salary=data.get("expected_salary"),
+        education_level=data.get("education_level"),
+        graduation_school=data.get("graduation_school"),
+        major=data.get("major"),
+        work_years=data.get("work_years"),
+        parsed_resume_json=data.get("parsed_resume_json"),
     )
     db.add(db_candidate)
     db.commit()
@@ -169,6 +200,21 @@ def update_candidate(db: Session, candidate_id: int, data: dict) -> Optional[Can
     db_candidate.source = data.get("source")
     db_candidate.resume_text = data["resume_text"]
     db_candidate.remark = data.get("remark")
+
+    # 新增结构化简历字段
+    db_candidate.gender = data.get("gender")
+    db_candidate.age = data.get("age")
+    db_candidate.current_city = data.get("current_city")
+    db_candidate.expected_city = data.get("expected_city")
+    db_candidate.job_search_status = data.get("job_search_status")
+    db_candidate.available_date = data.get("available_date")
+    db_candidate.expected_salary = data.get("expected_salary")
+    db_candidate.education_level = data.get("education_level")
+    db_candidate.graduation_school = data.get("graduation_school")
+    db_candidate.major = data.get("major")
+    db_candidate.work_years = data.get("work_years")
+    db_candidate.parsed_resume_json = data.get("parsed_resume_json")
+
     db_candidate.updated_at = datetime.now()
 
     db.commit()
@@ -464,3 +510,31 @@ def count_candidates_by_status(db: Session, job_id: int, status: str) -> int:
 
 def count_candidates_by_job(db: Session, job_id: int) -> int:
     return db.query(Candidate).filter(Candidate.job_id == job_id, Candidate.deleted == 0).count()
+
+
+# ============== Dashboard 统计 ==============
+def get_dashboard_stats(db: Session) -> dict:
+    """获取工作台统计数据"""
+    open_jobs = db.query(Job).filter(Job.deleted == 0, Job.status == constants.JOB_STATUS_OPEN).count()
+    total_candidates = db.query(Candidate).filter(Candidate.deleted == 0).count()
+    pending_screening = db.query(Candidate).filter(
+        Candidate.deleted == 0, Candidate.current_status == constants.STATUS_RESUME_PENDING
+    ).count()
+    pending_first_interview = db.query(Candidate).filter(
+        Candidate.deleted == 0, Candidate.current_status == constants.STATUS_RESUME_PASSED
+    ).count()
+    pending_second_interview = db.query(Candidate).filter(
+        Candidate.deleted == 0, Candidate.current_status == constants.STATUS_FIRST_INTERVIEW_PASSED
+    ).count()
+    high_risk = db.query(Candidate).filter(
+        Candidate.deleted == 0, Candidate.latest_ai_suggestion == "不建议"
+    ).count()
+
+    return {
+        "open_jobs": open_jobs,
+        "total_candidates": total_candidates,
+        "pending_screening": pending_screening,
+        "pending_first_interview": pending_first_interview,
+        "pending_second_interview": pending_second_interview,
+        "high_risk": high_risk,
+    }

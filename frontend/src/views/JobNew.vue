@@ -165,14 +165,15 @@ const goBack = () => {
 }
 
 .page-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
   margin: 0;
+  letter-spacing: 0;
 }
 
 .form-card {
-  padding: 32px;
+  padding: 28px;
 }
 
 .field-hint {
@@ -181,7 +182,7 @@ const goBack = () => {
   gap: 6px;
   margin-top: 8px;
   font-size: 13px;
-  color: #9CA3AF;
+  color: var(--color-text-muted);
 }
 
 .form-footer {
@@ -189,26 +190,36 @@ const goBack = () => {
   justify-content: flex-end;
   gap: 12px;
   padding-top: 24px;
-  border-top: 1px solid #F3F4F6;
+  border-top: 1px solid var(--color-border);
   margin-top: 8px;
 }
 
 :deep(.el-textarea__inner) {
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.6;
 }
 
 :deep(.el-input__inner) {
-  border-radius: 10px;
   height: 44px;
 }
 
 :deep(.el-form-item__label) {
   font-size: 14px;
-  color: #374151;
-  font-weight: 500;
+  color: var(--color-text);
+  font-weight: 600;
   margin-bottom: 8px;
+}
+
+@media (max-width: 760px) {
+  .form-card {
+    padding: 20px;
+  }
+
+  :deep(.el-col) {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
 }
 </style>

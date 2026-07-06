@@ -90,20 +90,20 @@
         <el-table-column prop="source" label="来源" min-width="80" />
         <el-table-column label="当前状态" min-width="100">
           <template #default="{ row }">
-            <el-tag effect="light" size="small">
-              {{ row.current_status }}
+            <el-tag :type="getCandidateStatusType(row.current_status)" effect="light" size="small">
+              {{ getCandidateStatusLabel(row.current_status) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column label="简历匹配度" min-width="90">
           <template #default="{ row }">
-            <span v-if="row.resume_match_score">{{ row.resume_match_score }}分</span>
+            <span v-if="row.resume_match_score != null" class="score-text" :style="{ color: getScoreColor(row.resume_match_score) }">{{ row.resume_match_score }}分</span>
             <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
         <el-table-column label="初试评分" min-width="90">
           <template #default="{ row }">
-            <span v-if="row.first_interview_score">{{ row.first_interview_score }}分</span>
+            <span v-if="row.first_interview_score != null" class="score-text" :style="{ color: getScoreColor(row.first_interview_score) }">{{ row.first_interview_score }}分</span>
             <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
@@ -151,6 +151,46 @@ const getStatusLabel = (status) => {
   if (status === 'PAUSED') return '已暂停'
   if (status === 'CLOSED') return '已关闭'
   return status
+}
+
+const candidateStatusTypeMap = {
+  IMPORTED: 'info',
+  RESUME_PENDING: 'warning',
+  RESUME_PASSED: 'success',
+  RESUME_REJECTED: 'danger',
+  FIRST_INTERVIEW_PENDING: 'warning',
+  FIRST_INTERVIEW_PASSED: 'success',
+  FIRST_INTERVIEW_REJECTED: 'danger',
+  SECOND_INTERVIEW_PENDING: 'warning',
+  SECOND_INTERVIEW_PASSED: 'success',
+  SECOND_INTERVIEW_REJECTED: 'danger',
+  HIRED: 'success',
+  ABANDONED: 'info',
+  TALENT_POOL: 'info'
+}
+
+const candidateStatusLabelMap = {
+  IMPORTED: '简历待解析',
+  RESUME_PENDING: '简历待筛选',
+  RESUME_PASSED: '简历通过',
+  RESUME_REJECTED: '简历淘汰',
+  FIRST_INTERVIEW_PENDING: '待约初试',
+  FIRST_INTERVIEW_PASSED: '初试通过',
+  FIRST_INTERVIEW_REJECTED: '初试淘汰',
+  SECOND_INTERVIEW_PENDING: '待复试',
+  SECOND_INTERVIEW_PASSED: '复试通过',
+  SECOND_INTERVIEW_REJECTED: '复试淘汰',
+  HIRED: '已录用',
+  ABANDONED: '已放弃',
+  TALENT_POOL: '人才库储备'
+}
+
+const getCandidateStatusType = (status) => candidateStatusTypeMap[status] || 'info'
+const getCandidateStatusLabel = (status) => candidateStatusLabelMap[status] || status
+const getScoreColor = (score) => {
+  if (score >= 80) return '#059669'
+  if (score >= 60) return '#d97706'
+  return '#dc2626'
 }
 
 const formatTime = (timeStr) => {
@@ -207,7 +247,7 @@ onMounted(() => {
 
 <style scoped>
 .job-detail {
-  max-width: 1180px;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
@@ -215,7 +255,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .header-actions {
@@ -224,7 +264,7 @@ onMounted(() => {
 }
 
 .overview-card {
-  padding: 28px 32px;
+  padding: 24px;
   margin-bottom: 20px;
 }
 
@@ -240,10 +280,11 @@ onMounted(() => {
 }
 
 .job-name {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text);
   margin: 0 0 12px 0;
+  letter-spacing: 0;
 }
 
 .job-meta {
@@ -257,36 +298,44 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  color: #6B7280;
+  color: var(--color-text-secondary);
 }
 
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 12px;
   padding-top: 20px;
-  border-top: 1px solid #F3F4F6;
+  border-top: 1px solid var(--color-border);
 }
 
 .stat-card {
+  min-height: 82px;
+  padding: 12px 16px;
+  border-right: 1px solid var(--color-border);
   text-align: center;
 }
 
+.stat-card:last-child {
+  border-right: 0;
+}
+
 .stat-value {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-text);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 13px;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   margin-top: 4px;
+  font-weight: 600;
 }
 
 .jd-card {
-  padding: 28px 32px;
+  padding: 24px;
   margin-bottom: 20px;
 }
 
@@ -299,30 +348,44 @@ onMounted(() => {
 
 .section-title {
   font-size: 18px;
-  font-weight: 600;
-  color: #111827;
+  font-weight: 700;
+  color: var(--color-text);
   margin: 0;
 }
 
 .jd-content {
   font-size: 14px;
-  color: #374151;
+  color: var(--color-text-secondary);
   line-height: 1.8;
   white-space: pre-wrap;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
 }
 
 .candidates-card {
-  padding: 28px 32px;
+  padding: 24px;
+}
+
+.candidates-card :deep(.el-table) {
+  border-radius: var(--radius-card);
 }
 
 .time-cell {
   font-size: 13px;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .text-muted {
-  color: #9CA3AF;
+  color: var(--color-text-muted);
+}
+
+.score-text {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .empty-state {
@@ -336,14 +399,27 @@ onMounted(() => {
 .empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   margin-top: 16px;
   margin-bottom: 4px;
 }
 
 .empty-desc {
   font-size: 14px;
-  color: #9CA3AF;
+  color: var(--color-text-muted);
   margin: 0;
+}
+
+@media (max-width: 900px) {
+  .overview-main,
+  .detail-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

@@ -164,7 +164,7 @@ def build_user_prompt(candidate_name: str, job_title: str, jd_text: str,
     )
 
 
-async def call_deepseek(user_prompt: str) -> str:
+async def call_deepseek(user_prompt: str, system_prompt: str = None) -> str:
     settings = get_settings()
 
     headers = {
@@ -172,12 +172,16 @@ async def call_deepseek(user_prompt: str) -> str:
         "Content-Type": "application/json"
     }
 
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    else:
+        messages.append({"role": "system", "content": SYSTEM_PROMPT})
+    messages.append({"role": "user", "content": user_prompt})
+
     payload = {
         "model": settings.deepseek_model,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt}
-        ],
+        "messages": messages,
         "temperature": 0.3,
         "max_tokens": 4000
     }

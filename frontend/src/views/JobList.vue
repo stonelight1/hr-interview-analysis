@@ -240,15 +240,16 @@ onMounted(() => {
 
 <style scoped>
 .job-list {
-  max-width: 1180px;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
 .header-left {
@@ -258,20 +259,21 @@ onMounted(() => {
 }
 
 .page-title {
-  font-size: 22px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text);
   margin: 0;
+  letter-spacing: 0;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 .filter-section {
-  padding: 20px 24px;
+  padding: 16px;
   margin-bottom: 20px;
 }
 
@@ -279,18 +281,18 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0;
+  gap: 12px;
 }
 
 .filter-form :deep(.el-form-item) {
   margin-bottom: 0;
-  margin-right: 16px;
+  margin-right: 0;
 }
 
 .filter-form :deep(.el-form-item__label) {
   font-size: 13px;
-  color: #6B7280;
-  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-weight: 600;
   padding-bottom: 6px;
 }
 
@@ -304,12 +306,16 @@ onMounted(() => {
 }
 
 .table-section :deep(.el-table) {
-  border-radius: 16px;
+  border-radius: var(--radius-card);
+}
+
+.table-section :deep(.el-table__header th) {
+  height: 46px;
 }
 
 .time-cell {
   font-size: 13px;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
@@ -320,10 +326,11 @@ onMounted(() => {
 }
 
 .pagination-wrapper {
-  padding: 16px 24px;
+  padding: 14px 16px;
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid #F3F4F6;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
 }
 
 .empty-state {
@@ -337,14 +344,34 @@ onMounted(() => {
 .empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: #6B7280;
+  color: var(--color-text-secondary);
   margin-top: 16px;
   margin-bottom: 4px;
 }
 
 .empty-desc {
   font-size: 14px;
-  color: #9CA3AF;
+  color: var(--color-text-muted);
   margin: 0;
+}
+
+@media (max-width: 900px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-actions {
+    margin-left: 0;
+  }
+
+  .filter-form :deep(.el-form-item) {
+    width: 100%;
+  }
+
+  .filter-form :deep(.el-input),
+  .filter-form :deep(.el-select) {
+    width: 100% !important;
+  }
 }
 </style>

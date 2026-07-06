@@ -1,5 +1,6 @@
 <template>
   <div class="candidate-detail" v-if="candidate">
+    <!-- 顶部导航 -->
     <div class="detail-header">
       <div class="header-left">
         <el-button plain @click="goBack">
@@ -8,227 +9,323 @@
         </el-button>
       </div>
       <div class="header-actions">
-        <el-button type="primary" plain @click="triggerResumeScreening" :loading="screeningLoading">
+        <el-button
+          v-if="candidate.current_status === 'RESUME_PENDING'"
+          type="primary" plain
+          :loading="screeningLoading"
+          @click="triggerResumeScreening"
+        >
           <el-icon><Search /></el-icon>
-          {{ screeningLoading ? '筛选中...' : '开始简历筛选' }}
+          {{ screeningLoading ? '筛选中...' : '生成简历筛选' }}
         </el-button>
       </div>
     </div>
 
-    <!-- 基础信息卡片 -->
+    <!-- 候选人概览 -->
     <div class="page-card overview-card">
       <div class="overview-main">
         <div class="candidate-info">
-          <h2 class="candidate-name">{{ candidate.candidate_name }}</h2>
-          <div class="candidate-meta">
-            <span class="meta-item">
-              <el-icon :size="14" color="#6B7280"><User /></el-icon>
-              {{ candidate.job_name || '岗位 #' + candidate.job_id }}
-            </span>
-            <span class="meta-item" v-if="candidate.phone">
-              <el-icon :size="14" color="#6B7280"><Phone /></el-icon>
-              {{ candidate.phone }}
-            </span>
-            <span class="meta-item" v-if="candidate.email">
-              <el-icon :size="14" color="#6B7280"><Message /></el-icon>
-              {{ candidate.email }}
-            </span>
-            <span class="meta-item" v-if="candidate.source">
-              <el-icon :size="14" color="#6B7280"><Connection /></el-icon>
-              {{ candidate.source }}
-            </span>
-          </div>
-        </div>
-        <div class="status-section">
-          <div class="current-status">
-            <span class="status-label">当前状态</span>
-            <el-tag effect="light" size="large">
+          <div class="info-row-top">
+            <h2 class="candidate-name">{{ candidate.candidate_name }}</h2>
+            <el-tag :type="getStatusType(candidate.current_status)" effect="light" size="large">
               {{ getStatusLabel(candidate.current_status) }}
             </el-tag>
           </div>
-          <div class="ai-suggestion" v-if="candidate.latest_ai_suggestion">
-            <span class="status-label">AI 建议</span>
-            <el-tag type="info" effect="light" size="large">
-              {{ candidate.latest_ai_suggestion }}
-            </el-tag>
+          <div class="candidate-meta">
+            <span class="meta-item"><el-icon :size="14"><OfficeBuilding /></el-icon>{{ candidate.job_name || '岗位 #' + candidate.job_id }}</span>
+            <span class="meta-item" v-if="candidate.job_type"><el-tag size="small" effect="plain" round>{{ candidate.job_type }}</el-tag></span>
+            <span class="meta-item" v-if="candidate.phone"><el-icon :size="14"><Phone /></el-icon>{{ candidate.phone }}</span>
+            <span class="meta-item" v-if="candidate.email"><el-icon :size="14"><Message /></el-icon>{{ candidate.email }}</span>
+            <span class="meta-item" v-if="candidate.source"><el-icon :size="14"><Connection /></el-icon>{{ candidate.source }}</span>
           </div>
         </div>
       </div>
 
+      <!-- 分数概览 -->
       <div class="scores-row">
         <div class="score-item">
-          <div class="score-value" :style="{ color: getScoreColor(candidate.resume_match_score) }">
+          <div class="score-circle-sm" :style="{ background: getScoreCircleColor(candidate.resume_match_score) }">
             {{ candidate.resume_match_score || '—' }}
           </div>
           <div class="score-label">简历匹配度</div>
         </div>
         <div class="score-item">
-          <div class="score-value" :style="{ color: getScoreColor(candidate.first_interview_score) }">
+          <div class="score-circle-sm" :style="{ background: getScoreCircleColor(candidate.first_interview_score) }">
             {{ candidate.first_interview_score || '—' }}
           </div>
           <div class="score-label">初试评分</div>
         </div>
         <div class="score-item">
-          <div class="score-value" :style="{ color: getScoreColor(candidate.second_interview_score) }">
+          <div class="score-circle-sm" :style="{ background: getScoreCircleColor(candidate.second_interview_score) }">
             {{ candidate.second_interview_score || '—' }}
           </div>
           <div class="score-label">复试评分</div>
         </div>
+        <div class="score-item">
+          <div class="score-label score-label-top">AI 建议</div>
+          <el-tag v-if="candidate.latest_ai_suggestion" :type="getSuggestionType(candidate.latest_ai_suggestion)" effect="light">
+            {{ candidate.latest_ai_suggestion }}
+          </el-tag>
+          <span v-else class="text-muted">—</span>
+        </div>
+        <div class="score-item">
+          <div class="score-label score-label-top">风险等级</div>
+          <el-tag v-if="candidate.latest_ai_suggestion === '不建议'" type="danger" effect="light">高</el-tag>
+          <el-tag v-else-if="candidate.latest_ai_suggestion === '暂缓'" type="warning" effect="light">中</el-tag>
+          <el-tag v-else-if="candidate.latest_ai_suggestion" type="success" effect="light">低</el-tag>
+          <span v-else class="text-muted">—</span>
+        </div>
       </div>
     </div>
 
-    <!-- 简历内容 -->
-    <div class="page-card resume-card">
-      <div class="section-header">
-        <h3 class="section-title">简历内容</h3>
+    <!-- 招聘流程进度条 -->
+    <div class="page-card progress-card">
+      <div class="progress-steps">
+        <div v-for="(step, idx) in progressSteps" :key="idx" class="progress-step" :class="step.status">
+          <div class="step-dot">
+            <el-icon v-if="step.status === 'done'"><Check /></el-icon>
+            <span v-else>{{ idx + 1 }}</span>
+          </div>
+          <div class="step-label">{{ step.label }}</div>
+          <div class="step-bar" v-if="idx < progressSteps.length - 1" />
+        </div>
       </div>
-      <div class="resume-content">{{ candidate.resume_text }}</div>
     </div>
 
-    <!-- 简历筛选报告 -->
-    <div class="page-card screening-card" v-if="resumeScreeningReport">
-      <div class="section-header">
-        <div class="section-icon screening-icon">
-          <el-icon :size="20" color="#fff"><Search /></el-icon>
-        </div>
-        <h3 class="section-title">简历筛选报告</h3>
-        <span class="section-time">{{ formatTime(resumeScreeningReport.created_at) }}</span>
-      </div>
-
-      <div class="report-summary">
-        <div class="summary-score">
-          <div class="score-circle" :style="{ background: getScoreCircleColor(resumeScreeningReport.score) }">
-            <div class="score-value">{{ resumeScreeningReport.score }}</div>
-            <div class="score-label">匹配度</div>
+    <!-- Tab 内容 -->
+    <div class="page-card tab-card">
+      <el-tabs v-model="activeTab" class="detail-tabs">
+        <!-- Tab1: 基础信息 -->
+        <el-tab-pane label="基础信息" name="info">
+          <div class="tab-content">
+            <el-descriptions :column="3" border size="small">
+              <el-descriptions-item label="姓名">{{ candidate.candidate_name }}</el-descriptions-item>
+              <el-descriptions-item label="性别">{{ candidate.gender || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="年龄">{{ candidate.age || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="手机号">{{ candidate.phone || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="邮箱">{{ candidate.email || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="当前城市">{{ candidate.current_city || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="最高学历">{{ candidate.education_level || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="毕业学校">{{ candidate.graduation_school || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="专业">{{ candidate.major || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="工作年限">{{ candidate.work_years != null ? candidate.work_years + '年' : '—' }}</el-descriptions-item>
+              <el-descriptions-item label="期望薪资">{{ candidate.expected_salary || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="求职状态">{{ candidate.job_search_status || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="应聘岗位">{{ candidate.job_name || '岗位 #' + candidate.job_id }}</el-descriptions-item>
+              <el-descriptions-item label="岗位类型">{{ candidate.job_type || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="候选人来源">{{ candidate.source || '—' }}</el-descriptions-item>
+            </el-descriptions>
           </div>
-        </div>
-        <div class="summary-content">
-          <div class="summary-suggestion">
-            <span class="summary-label">AI 建议</span>
-            <el-tag :type="getSuggestionType(resumeScreeningReport.suggestion)" effect="light">
-              {{ resumeScreeningReport.suggestion }}
-            </el-tag>
-          </div>
-          <div class="summary-risk" v-if="resumeScreeningReport.risk_level">
-            <span class="summary-label">风险等级</span>
-            <el-tag :type="getRiskType(resumeScreeningReport.risk_level)" effect="light">
-              {{ resumeScreeningReport.risk_level }}风险
-            </el-tag>
-          </div>
-        </div>
-      </div>
+        </el-tab-pane>
 
-      <div class="report-text" v-if="getReportField('summary')">
-        {{ getReportField('summary') }}
-      </div>
-
-      <!-- 匹配优势 -->
-      <div class="report-section" v-if="getReportField('strengths')?.length">
-        <h4 class="report-section-title">匹配优势</h4>
-        <div class="item-list">
-          <div v-for="(item, index) in getReportField('strengths')" :key="index" class="advantage-card item-card">
-            <div class="item-header">
-              <span class="item-number">{{ index + 1 }}</span>
-              <h5 class="item-title">{{ item.title }}</h5>
-            </div>
-            <p class="item-detail">{{ item.detail }}</p>
-            <div class="item-evidence" v-if="item.evidence">
-              <el-icon :size="14" color="#10B981"><InfoFilled /></el-icon>
-              <span>证据：{{ item.evidence }}</span>
-            </div>
+        <!-- Tab2: 原始简历 -->
+        <el-tab-pane label="原始简历" name="resume">
+          <div class="tab-content">
+            <div class="resume-text">{{ candidate.resume_text }}</div>
           </div>
-        </div>
-      </div>
+        </el-tab-pane>
 
-      <!-- 不匹配点 -->
-      <div class="report-section" v-if="getReportField('mismatches')?.length">
-        <h4 class="report-section-title">不匹配点</h4>
-        <div class="item-list">
-          <div v-for="(item, index) in getReportField('mismatches')" :key="index" class="mismatch-card item-card">
-            <div class="item-header">
-              <span class="item-number">{{ index + 1 }}</span>
-              <h5 class="item-title">{{ item.title }}</h5>
-            </div>
-            <p class="item-detail">{{ item.detail }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 风险点 -->
-      <div class="report-section" v-if="getReportField('risk_points')?.length">
-        <h4 class="report-section-title">风险点</h4>
-        <div class="risk-list">
-          <div v-for="(item, index) in getReportField('risk_points')" :key="index" class="risk-card" :class="`risk-${getRiskLevelClass(item.level)}`">
-            <div class="risk-header">
-              <div class="risk-title">
-                <el-icon :size="16"><Warning /></el-icon>
-                <span>{{ item.risk }}</span>
+        <!-- Tab3: 简历筛选报告 -->
+        <el-tab-pane label="简历筛选报告" name="screening">
+          <div class="tab-content" v-if="resumeScreeningReport">
+            <div class="report-header">
+              <div class="report-score-big" :style="{ color: getScoreColor(resumeScreeningReport.score) }">
+                {{ resumeScreeningReport.score }}
+                <span class="score-unit">分</span>
               </div>
-              <el-tag :type="getRiskType(item.level)" effect="light" size="small">
-                {{ item.level }}风险
-              </el-tag>
+              <div class="report-meta">
+                <div><span class="meta-lbl">AI 建议：</span><el-tag :type="getSuggestionType(resumeScreeningReport.suggestion)" effect="light">{{ resumeScreeningReport.suggestion }}</el-tag></div>
+                <div v-if="resumeScreeningReport.risk_level"><span class="meta-lbl">风险等级：</span><el-tag :type="getRiskType(resumeScreeningReport.risk_level)" effect="light">{{ resumeScreeningReport.risk_level }}</el-tag></div>
+                <div><span class="meta-lbl">生成时间：</span>{{ formatTime(resumeScreeningReport.created_at) }}</div>
+              </div>
             </div>
-            <p class="risk-detail">{{ item.detail }}</p>
+            <ReportSection :reportJson="resumeScreeningReport.report_json" />
           </div>
-        </div>
-      </div>
+          <div class="tab-empty" v-else>
+            <p>暂无简历筛选报告</p>
+            <el-button v-if="candidate.current_status === 'RESUME_PENDING'" type="primary" plain @click="triggerResumeScreening">
+              开始简历筛选
+            </el-button>
+          </div>
+        </el-tab-pane>
 
-      <!-- 建议追问 -->
-      <div class="report-section" v-if="getReportField('follow_up_questions')?.length">
-        <h4 class="report-section-title">建议追问问题</h4>
-        <div class="follow-up-list">
-          <div v-for="(item, index) in getReportField('follow_up_questions')" :key="index" class="follow-up-card">
-            <div class="follow-up-number">{{ index + 1 }}</div>
-            <div class="follow-up-content">
-              <p class="follow-up-question">{{ item.question }}</p>
-              <p class="follow-up-purpose" v-if="item.purpose">
-                <el-icon :size="14" color="#8B5CF6"><Aim /></el-icon>
-                <span>{{ item.purpose }}</span>
-              </p>
+        <!-- Tab4: 初试记录与评估 -->
+        <el-tab-pane label="初试记录与评估" name="firstInterview">
+          <div class="tab-content">
+            <div class="subsection">
+              <h4 class="sub-title">初试记录</h4>
+              <div v-if="firstInterviewRecord" class="interview-display">
+                <div class="interview-meta" v-if="firstInterviewRecord.interviewer_name || firstInterviewRecord.interview_time">
+                  <span v-if="firstInterviewRecord.interviewer_name">面试官：{{ firstInterviewRecord.interviewer_name }}</span>
+                  <span v-if="firstInterviewRecord.interview_time">时间：{{ formatTime(firstInterviewRecord.interview_time) }}</span>
+                </div>
+                <div class="interview-text">{{ firstInterviewRecord.record_text }}</div>
+              </div>
+              <div v-else class="tab-empty">
+                <p>暂无初试记录</p>
+                <el-button type="primary" plain @click="showFirstInterviewDialog = true">
+                  <el-icon><Plus /></el-icon>
+                  添加初试记录
+                </el-button>
+              </div>
+            </div>
+
+            <el-divider />
+
+            <div class="subsection">
+              <h4 class="sub-title">初试评估报告</h4>
+              <div v-if="firstInterviewReport" class="report-section-compact">
+                <div class="report-header">
+                  <div class="report-score-big" :style="{ color: getScoreColor(firstInterviewReport.score) }">
+                    {{ firstInterviewReport.score }}<span class="score-unit">分</span>
+                  </div>
+                  <div class="report-meta">
+                    <div><span class="meta-lbl">AI 建议：</span><el-tag :type="getSuggestionType(firstInterviewReport.suggestion)" effect="light">{{ firstInterviewReport.suggestion }}</el-tag></div>
+                    <div>生成时间：{{ formatTime(firstInterviewReport.created_at) }}</div>
+                  </div>
+                </div>
+                <ReportSection :reportJson="firstInterviewReport.report_json" />
+              </div>
+              <div v-else class="tab-empty">
+                <p>暂无初试评估报告</p>
+                <el-button v-if="firstInterviewRecord" type="primary" plain :loading="firstAnalysisLoading" @click="triggerFirstAnalysis">
+                  {{ firstAnalysisLoading ? '分析中...' : '生成初试评估' }}
+                </el-button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </el-tab-pane>
+
+        <!-- Tab5: 复试记录与评估 -->
+        <el-tab-pane label="复试记录与评估" name="secondInterview">
+          <div class="tab-content">
+            <div class="subsection">
+              <h4 class="sub-title">复试记录</h4>
+              <div v-if="secondInterviewRecord" class="interview-display">
+                <div class="interview-meta" v-if="secondInterviewRecord.interviewer_name || secondInterviewRecord.interview_time">
+                  <span v-if="secondInterviewRecord.interviewer_name">面试官：{{ secondInterviewRecord.interviewer_name }}</span>
+                  <span v-if="secondInterviewRecord.interview_time">时间：{{ formatTime(secondInterviewRecord.interview_time) }}</span>
+                </div>
+                <div class="interview-text">{{ secondInterviewRecord.record_text }}</div>
+              </div>
+              <div v-else class="tab-empty">
+                <p>暂无复试记录</p>
+                <el-button type="primary" plain @click="showSecondInterviewDialog = true">
+                  <el-icon><Plus /></el-icon>
+                  添加复试记录
+                </el-button>
+              </div>
+            </div>
+
+            <el-divider />
+
+            <div class="subsection">
+              <h4 class="sub-title">复试评估报告</h4>
+              <div v-if="secondInterviewReport" class="report-section-compact">
+                <div class="report-header">
+                  <div class="report-score-big" :style="{ color: getScoreColor(secondInterviewReport.score) }">
+                    {{ secondInterviewReport.score }}<span class="score-unit">分</span>
+                  </div>
+                  <div class="report-meta">
+                    <div><span class="meta-lbl">AI 建议：</span><el-tag :type="getSuggestionType(secondInterviewReport.suggestion)" effect="light">{{ secondInterviewReport.suggestion }}</el-tag></div>
+                    <div>生成时间：{{ formatTime(secondInterviewReport.created_at) }}</div>
+                  </div>
+                </div>
+                <ReportSection :reportJson="secondInterviewReport.report_json" />
+              </div>
+              <div v-else class="tab-empty">
+                <p>暂无复试评估报告</p>
+                <el-button v-if="secondInterviewRecord" type="primary" plain :loading="secondAnalysisLoading" @click="triggerSecondAnalysis">
+                  {{ secondAnalysisLoading ? '分析中...' : '生成复试评估' }}
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <!-- Tab6: 最终建议 -->
+        <el-tab-pane label="最终建议" name="final">
+          <div class="tab-content">
+            <div class="final-summary">
+              <el-alert
+                v-if="candidate.latest_ai_suggestion"
+                :title="'当前建议：' + candidate.latest_ai_suggestion"
+                :type="getSuggestionType(candidate.latest_ai_suggestion) === 'success' ? 'success' : (getSuggestionType(candidate.latest_ai_suggestion) === 'warning' ? 'warning' : 'info')"
+                show-icon
+              />
+              <div class="final-scores">
+                <div class="final-score-item">
+                  <span class="final-label">简历匹配度</span>
+                  <span class="final-value" :style="{ color: getScoreColor(candidate.resume_match_score) }">{{ candidate.resume_match_score || '—' }}</span>
+                </div>
+                <div class="final-score-item">
+                  <span class="final-label">初试评分</span>
+                  <span class="final-value" :style="{ color: getScoreColor(candidate.first_interview_score) }">{{ candidate.first_interview_score || '—' }}</span>
+                </div>
+                <div class="final-score-item">
+                  <span class="final-label">复试评分</span>
+                  <span class="final-value" :style="{ color: getScoreColor(candidate.second_interview_score) }">{{ candidate.second_interview_score || '—' }}</span>
+                </div>
+              </div>
+              <p class="final-note">综合评价基于简历筛选、初试评估和复试评估的结果综合得出。</p>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
-    <!-- 初试记录与分析 -->
-    <div class="page-card first-interview-card">
-      <div class="section-header">
-        <div class="section-icon interview-icon">
-          <el-icon :size="20" color="#fff"><ChatLineRound /></el-icon>
-        </div>
-        <h3 class="section-title">初试记录</h3>
-      </div>
-
-      <div class="empty-interview" v-if="!firstInterviewRecord">
-        <p>暂无初试记录</p>
-        <el-button type="primary" plain @click="goToAddInterviewRecord">
-          <el-icon><Plus /></el-icon>
-          添加初试记录
+    <!-- 添加初试记录对话框 -->
+    <el-dialog v-model="showFirstInterviewDialog" title="添加初试记录" width="600px" destroy-on-close>
+      <el-form label-position="top">
+        <el-form-item label="面试官">
+          <el-input v-model="firstInterviewForm.interviewer_name" placeholder="面试官姓名" />
+        </el-form-item>
+        <el-form-item label="面试时间">
+          <el-date-picker v-model="firstInterviewForm.interview_time" type="datetime" placeholder="选择面试时间" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="面试记录">
+          <el-input v-model="firstInterviewForm.record_text" type="textarea" :rows="8" placeholder="请粘贴面试记录文本..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showFirstInterviewDialog = false">取消</el-button>
+        <el-button type="primary" :loading="savingFirstRecord" @click="saveFirstInterviewRecord">
+          {{ savingFirstRecord ? '保存中...' : '保存并生成评估' }}
         </el-button>
-      </div>
+      </template>
+    </el-dialog>
 
-      <div class="interview-content" v-else>
-        <div class="interview-meta">
-          <span v-if="firstInterviewRecord.interviewer_name">
-            面试官：{{ firstInterviewRecord.interviewer_name }}
-          </span>
-          <span v-if="firstInterviewRecord.interview_time">
-            面试时间：{{ formatTime(firstInterviewRecord.interview_time) }}
-          </span>
-        </div>
-        <div class="interview-text">{{ firstInterviewRecord.record_text }}</div>
-      </div>
-    </div>
+    <!-- 添加复试记录对话框 -->
+    <el-dialog v-model="showSecondInterviewDialog" title="添加复试记录" width="600px" destroy-on-close>
+      <el-form label-position="top">
+        <el-form-item label="面试官">
+          <el-input v-model="secondInterviewForm.interviewer_name" placeholder="面试官姓名" />
+        </el-form-item>
+        <el-form-item label="面试时间">
+          <el-date-picker v-model="secondInterviewForm.interview_time" type="datetime" placeholder="选择面试时间" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="面试记录">
+          <el-input v-model="secondInterviewForm.record_text" type="textarea" :rows="8" placeholder="请粘贴复试记录文本..." />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showSecondInterviewDialog = false">取消</el-button>
+        <el-button type="primary" :loading="savingSecondRecord" @click="saveSecondInterviewRecord">
+          {{ savingSecondRecord ? '保存中...' : '保存并生成评估' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Search, User, Phone, Message, Connection, InfoFilled, Warning, Aim, ChatLineRound, Plus } from '@element-plus/icons-vue'
-import { candidatesApi, screeningApi, firstInterviewRecordApi } from '../api/analysis.js'
+import { ArrowLeft, Search, User, Phone, Message, Connection, InfoFilled, Warning, Aim, ChatLineRound, Plus, Check, OfficeBuilding } from '@element-plus/icons-vue'
+import { candidatesApi, screeningApi, firstInterviewRecordApi, firstInterviewAnalysisApi, secondInterviewRecordApi, secondInterviewAnalysisApi } from '../api/analysis.js'
+
+import ReportSection from '../components/ReportSection.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -236,106 +333,69 @@ const router = useRouter()
 const candidate = ref(null)
 const resumeScreeningReport = ref(null)
 const firstInterviewRecord = ref(null)
+const firstInterviewReport = ref(null)
+const secondInterviewRecord = ref(null)
+const secondInterviewReport = ref(null)
 const screeningLoading = ref(false)
+const firstAnalysisLoading = ref(false)
+const secondAnalysisLoading = ref(false)
+const savingFirstRecord = ref(false)
+const savingSecondRecord = ref(false)
+const activeTab = ref('info')
+const showFirstInterviewDialog = ref(false)
+const showSecondInterviewDialog = ref(false)
 
-const getScoreColor = (score) => {
-  if (!score) return '#9CA3AF'
-  if (score >= 80) return '#10B981'
-  if (score >= 60) return '#F59E0B'
-  return '#EF4444'
-}
+const firstInterviewForm = reactive({ interviewer_name: '', interview_time: null, record_text: '' })
+const secondInterviewForm = reactive({ interviewer_name: '', interview_time: null, record_text: '' })
 
-const getScoreCircleColor = (score) => {
-  if (!score) return 'linear-gradient(135deg, #9CA3AF 0%, #6B7280 100%)'
-  if (score >= 80) return 'linear-gradient(135deg, #10B981 0%, #059669 100%)'
-  if (score >= 60) return 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'
-  return 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)'
-}
+const progressSteps = computed(() => {
+  const status = candidate.value?.current_status || ''
+  const stages = [
+    { key: 'parsed', label: '简历解析', done: status !== 'IMPORTED' },
+    { key: 'screened', label: '简历筛选', done: ['RESUME_PASSED','RESUME_REJECTED','FIRST_INTERVIEW_PENDING','FIRST_INTERVIEW_PASSED','FIRST_INTERVIEW_REJECTED','SECOND_INTERVIEW_PENDING','SECOND_INTERVIEW_PASSED','SECOND_INTERVIEW_REJECTED','HIRED','ABANDONED','TALENT_POOL'].includes(status) },
+    { key: 'first', label: '初试', done: ['FIRST_INTERVIEW_PASSED','FIRST_INTERVIEW_REJECTED','SECOND_INTERVIEW_PENDING','SECOND_INTERVIEW_PASSED','SECOND_INTERVIEW_REJECTED','HIRED','ABANDONED'].includes(status) },
+    { key: 'second', label: '复试', done: ['SECOND_INTERVIEW_PASSED','SECOND_INTERVIEW_REJECTED','HIRED'].includes(status) },
+    { key: 'final', label: '最终结论', done: ['HIRED','ABANDONED'].includes(status) },
+  ]
+  let activeFound = false
+  return stages.map(s => {
+    if (!s.done && !activeFound) { activeFound = true; return { ...s, status: 'active' } }
+    if (s.done) return { ...s, status: 'done' }
+    return { ...s, status: 'pending' }
+  })
+})
 
-const getSuggestionType = (suggestion) => {
-  if (suggestion === '建议约初试' || suggestion === '建议进入复试') return 'success'
-  if (suggestion === '人才库储备') return 'warning'
-  return 'danger'
+const getStatusType = (s) => {
+  const m = { RESUME_PENDING: 'warning', RESUME_PASSED: 'success', RESUME_REJECTED: 'danger', FIRST_INTERVIEW_PENDING: 'warning', FIRST_INTERVIEW_PASSED: 'success', FIRST_INTERVIEW_REJECTED: 'danger', SECOND_INTERVIEW_PENDING: 'warning', SECOND_INTERVIEW_PASSED: 'success', SECOND_INTERVIEW_REJECTED: 'danger', HIRED: 'success', ABANDONED: 'info', TALENT_POOL: 'info' }
+  return m[s] || 'info'
 }
-
-const getRiskType = (level) => {
-  if (level === '低') return 'success'
-  if (level === '中') return 'warning'
-  return 'danger'
+const getStatusLabel = (s) => {
+  const m = { IMPORTED: '简历待解析', RESUME_PENDING: '简历待筛选', RESUME_PASSED: '简历通过', RESUME_REJECTED: '简历淘汰', FIRST_INTERVIEW_PENDING: '待约初试', FIRST_INTERVIEW_PASSED: '初试通过', FIRST_INTERVIEW_REJECTED: '初试淘汰', SECOND_INTERVIEW_PENDING: '待复试', SECOND_INTERVIEW_PASSED: '复试通过', SECOND_INTERVIEW_REJECTED: '复试淘汰', HIRED: '已录用', ABANDONED: '已放弃', TALENT_POOL: '人才库储备' }
+  return m[s] || s
 }
-
-const getRiskLevelClass = (level) => {
-  if (level === '高') return 'high'
-  if (level === '中') return 'medium'
-  return 'low'
-}
-
-const getStatusLabel = (status) => {
-  const statusMap = {
-    'IMPORTED': '已导入',
-    'RESUME_PENDING': '简历待筛选',
-    'RESUME_PASSED': '简历通过',
-    'RESUME_REJECTED': '简历淘汰',
-    'FIRST_INTERVIEW_PENDING': '待初试',
-    'FIRST_INTERVIEW_PASSED': '初试通过',
-    'FIRST_INTERVIEW_REJECTED': '初试淘汰',
-    'SECOND_INTERVIEW_PENDING': '待复试',
-    'SECOND_INTERVIEW_PASSED': '复试通过',
-    'SECOND_INTERVIEW_REJECTED': '复试淘汰',
-    'HIRED': '已录用',
-    'ABANDONED': '已放弃',
-    'TALENT_POOL': '人才库储备'
-  }
-  return statusMap[status] || status
-}
-
-const formatTime = (timeStr) => {
-  if (!timeStr) return ''
-  const date = new Date(timeStr)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
-
-const getReportField = (field) => {
-  if (!resumeScreeningReport.value) return null
-  try {
-    const report = JSON.parse(resumeScreeningReport.value.report_json)
-    return report[field]
-  } catch (error) {
-    return null
-  }
-}
+const getScoreColor = (s) => { if (!s && s !== 0) return '#9CA3AF'; if (s >= 80) return '#10B981'; if (s >= 60) return '#F59E0B'; return '#EF4444' }
+const getScoreCircleColor = (s) => { if (!s && s !== 0) return 'linear-gradient(135deg, #9CA3AF 0%, #6B7280 100%)'; if (s >= 80) return 'linear-gradient(135deg, #10B981 0%, #059669 100%)'; if (s >= 60) return 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)'; return 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)' }
+const getSuggestionType = (s) => { if (s === '建议约初试' || s === '建议进入复试' || s === '强烈建议进入下一轮' || s === '建议进入下一轮') return 'success'; if (s === '暂缓' || s === '人才库储备') return 'warning'; return 'danger' }
+const getRiskType = (l) => { if (l === '低') return 'success'; if (l === '中') return 'warning'; return 'danger' }
+const formatTime = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` }
 
 const fetchCandidate = async () => {
-  try {
-    const response = await candidatesApi.getById(route.params.id)
-    candidate.value = response.data
-  } catch (error) {
-    ElMessage.error('获取候选人详情失败')
-  }
+  try { const r = await candidatesApi.getById(route.params.id); candidate.value = r.data } catch (e) { ElMessage.error('获取候选人详情失败') }
 }
-
 const fetchResumeScreeningReport = async () => {
-  try {
-    const response = await screeningApi.getLatest(route.params.id)
-    resumeScreeningReport.value = response.data
-  } catch (error) {
-    // 可能还没有报告
-    resumeScreeningReport.value = null
-  }
+  try { const r = await screeningApi.getLatest(route.params.id); resumeScreeningReport.value = r.data } catch (e) { resumeScreeningReport.value = null }
 }
-
 const fetchFirstInterviewRecord = async () => {
-  try {
-    const response = await firstInterviewRecordApi.getLatest(route.params.id)
-    firstInterviewRecord.value = response.data
-  } catch (error) {
-    firstInterviewRecord.value = null
-  }
+  try { const r = await firstInterviewRecordApi.getLatest(route.params.id); firstInterviewRecord.value = r.data } catch (e) { firstInterviewRecord.value = null }
+}
+const fetchFirstInterviewReport = async () => {
+  try { const r = await firstInterviewAnalysisApi.getLatest(route.params.id); firstInterviewReport.value = r.data } catch (e) { firstInterviewReport.value = null }
+}
+const fetchSecondInterviewRecord = async () => {
+  try { const r = await secondInterviewRecordApi.getLatest(route.params.id); secondInterviewRecord.value = r.data } catch (e) { secondInterviewRecord.value = null }
+}
+const fetchSecondInterviewReport = async () => {
+  try { const r = await secondInterviewAnalysisApi.getLatest(route.params.id); secondInterviewReport.value = r.data } catch (e) { secondInterviewReport.value = null }
 }
 
 const triggerResumeScreening = async () => {
@@ -344,433 +404,182 @@ const triggerResumeScreening = async () => {
     await screeningApi.trigger(route.params.id, { force: false, request_id: null })
     ElMessage.success('简历筛选完成')
     await fetchResumeScreeningReport()
-    await fetchCandidate() // 刷新分数
+    await fetchCandidate()
+    activeTab.value = 'screening'
   } catch (error) {
-    const message = error.response?.data?.detail || '简历筛选失败，请稍后重试'
-    ElMessage.error(message)
-  } finally {
-    screeningLoading.value = false
-  }
+    ElMessage.error(error.response?.data?.detail || '简历筛选失败')
+  } finally { screeningLoading.value = false }
+}
+
+const saveFirstInterviewRecord = async () => {
+  if (!firstInterviewForm.record_text.trim()) { ElMessage.warning('请填写面试记录'); return }
+  savingFirstRecord.value = true
+  try {
+    const r = await firstInterviewRecordApi.create(route.params.id, firstInterviewForm)
+    await fetchFirstInterviewRecord()
+    showFirstInterviewDialog.value = false
+    ElMessage.success('初试记录已保存')
+
+    // 自动触发分析
+    firstAnalysisLoading.value = true
+    try {
+      await firstInterviewAnalysisApi.trigger(route.params.id, { interview_record_id: r.data.id, force: false })
+      await fetchFirstInterviewReport()
+      await fetchCandidate()
+      ElMessage.success('初试评估已生成')
+      activeTab.value = 'firstInterview'
+    } catch (e) {
+      ElMessage.warning('初试记录已保存，但评估生成失败')
+    } finally { firstAnalysisLoading.value = false }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '保存失败')
+  } finally { savingFirstRecord.value = false }
+}
+
+const saveSecondInterviewRecord = async () => {
+  if (!secondInterviewForm.record_text.trim()) { ElMessage.warning('请填写面试记录'); return }
+  savingSecondRecord.value = true
+  try {
+    const r = await secondInterviewRecordApi.create(route.params.id, secondInterviewForm)
+    await fetchSecondInterviewRecord()
+    showSecondInterviewDialog.value = false
+    ElMessage.success('复试记录已保存')
+
+    secondAnalysisLoading.value = true
+    try {
+      await secondInterviewAnalysisApi.trigger(route.params.id, { interview_record_id: r.data.id, force: false })
+      await fetchSecondInterviewReport()
+      await fetchCandidate()
+      ElMessage.success('复试评估已生成')
+      activeTab.value = 'secondInterview'
+    } catch (e) {
+      ElMessage.warning('复试记录已保存，但评估生成失败')
+    } finally { secondAnalysisLoading.value = false }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '保存失败')
+  } finally { savingSecondRecord.value = false }
 }
 
 const goBack = () => {
-  if (candidate.value?.job_id) {
-    router.push(`/jobs/${candidate.value.job_id}`)
-  } else {
-    router.push('/candidates')
-  }
-}
-
-const goToAddInterviewRecord = () => {
-  // TODO: 创建添加初试记录的对话框或页面
-  ElMessage.info('功能开发中')
+  if (candidate.value?.job_id) router.push(`/jobs/${candidate.value.job_id}`)
+  else router.push('/candidates')
 }
 
 onMounted(() => {
   fetchCandidate()
   fetchResumeScreeningReport()
   fetchFirstInterviewRecord()
+  fetchFirstInterviewReport()
+  fetchSecondInterviewRecord()
+  fetchSecondInterviewReport()
 })
 </script>
 
 <style scoped>
-.candidate-detail {
-  max-width: 1180px;
-  margin: 0 auto;
-}
+.candidate-detail { max-width: 1160px; margin: 0 auto; }
+.detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.header-actions { display: flex; gap: 8px; }
+.overview-card { padding: 24px; margin-bottom: 16px; }
+.overview-main { margin-bottom: 20px; }
+.info-row-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.candidate-name { font-size: 26px; font-weight: 700; color: var(--color-text); margin: 0; letter-spacing: 0; }
+.candidate-meta { display: flex; gap: 12px 16px; flex-wrap: wrap; font-size: 13px; color: var(--color-text-secondary); align-items: center; }
+.meta-item { display: flex; align-items: center; gap: 4px; }
+.scores-row { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 0; padding-top: 16px; border-top: 1px solid var(--color-border); align-items: stretch; }
+.score-item { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 58px; padding: 4px 12px; border-right: 1px solid var(--color-border); }
+.score-item:last-child { border-right: 0; }
+.score-circle-sm { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+.score-label { font-size: 13px; color: var(--color-text-secondary); font-weight: 600; }
+.score-label-top { margin-bottom: 4px; }
+.text-muted { color: var(--color-text-muted); }
 
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
+/* 进度条 */
+.progress-card { padding: 20px 24px; margin-bottom: 16px; }
+.progress-steps { display: flex; align-items: flex-start; gap: 0; }
+.progress-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+.step-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; z-index: 1; }
+.progress-step.done .step-dot { background: var(--color-primary); color: #fff; }
+.progress-step.active .step-dot { background: var(--color-blue); color: #fff; box-shadow: 0 0 0 4px #e8f1ff; }
+.progress-step.pending .step-dot { background: #edf1f5; color: var(--color-text-muted); }
+.step-label { font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; text-align: center; white-space: nowrap; font-weight: 600; }
+.progress-step.active .step-label { color: var(--color-blue); }
+.progress-step.done .step-label { color: var(--color-primary); }
+.step-bar { position: absolute; top: 16px; left: calc(50% + 16px); right: calc(-50% + 16px); height: 2px; background: var(--color-border); }
+.progress-step.done .step-bar { background: var(--color-primary); }
+.progress-step.active .step-bar { background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-border) 100%); }
 
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
+/* Tab */
+.tab-card { padding: 0 24px; }
+.detail-tabs { padding-top: 8px; }
+.tab-content { padding: 16px 0 24px; }
+.tab-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 20px; color: var(--color-text-muted); }
+.tab-empty p { margin: 0; }
 
-.overview-card {
-  padding: 28px 32px;
-  margin-bottom: 20px;
-}
+.resume-text { font-size: 14px; line-height: 1.8; white-space: pre-wrap; color: var(--color-text-secondary); padding: 18px; border-radius: var(--radius-card); background: var(--color-surface-soft); border: 1px solid var(--color-border); }
 
-.overview-main {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
-}
+/* 报告 */
+.report-header { display: flex; gap: 24px; margin-bottom: 20px; padding: 16px; background: var(--color-surface-soft); border: 1px solid var(--color-border); border-radius: var(--radius-card); align-items: center; }
+.report-score-big { font-size: 36px; font-weight: 700; line-height: 1; }
+.score-unit { font-size: 14px; font-weight: 400; }
+.report-meta { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }
+.meta-lbl { color: var(--color-text-muted); }
 
-.candidate-info {
-  flex: 1;
-}
+.subsection { margin-bottom: 8px; }
+.sub-title { font-size: 15px; font-weight: 700; color: var(--color-text); margin: 0 0 12px 0; }
+.interview-meta { display: flex; gap: 20px; font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px; }
+.interview-text { font-size: 14px; line-height: 1.8; white-space: pre-wrap; color: var(--color-text-secondary); padding: 16px; border-radius: var(--radius-card); background: var(--color-surface-soft); border: 1px solid var(--color-border); }
 
-.candidate-name {
-  font-size: 24px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 12px 0;
-}
+.final-summary { padding: 16px 0; }
+.final-scores { display: flex; gap: 32px; margin: 20px 0; }
+.final-score-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.final-label { font-size: 13px; color: var(--color-text-secondary); }
+.final-value { font-size: 28px; font-weight: 700; }
+.final-note { font-size: 13px; color: var(--color-text-muted); margin-top: 16px; }
 
-.candidate-meta {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
+:deep(.el-descriptions__cell) { padding: 8px 12px !important; }
+:deep(.el-divider) { margin: 20px 0; }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: #6B7280;
-}
-
-.status-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.status-label {
-  font-size: 13px;
-  color: #9CA3AF;
-  margin-right: 8px;
-}
-
-.scores-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #F3F4F6;
-}
-
-.score-item {
-  text-align: center;
-}
-
-.score-value {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.score-label {
-  font-size: 13px;
-  color: #6B7280;
-  margin-top: 4px;
-}
-
-.resume-card {
-  padding: 28px 32px;
-  margin-bottom: 20px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.section-title {
-  font-size: 18px;
+:deep(.el-tabs__item) {
   font-weight: 600;
-  color: #111827;
-  margin: 0;
 }
 
-.section-time {
-  font-size: 13px;
-  color: #9CA3AF;
-  margin-left: auto;
+:deep(.el-tabs__active-bar) {
+  background: var(--color-primary);
 }
 
-.section-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+:deep(.el-tabs__item.is-active),
+:deep(.el-tabs__item:hover) {
+  color: var(--color-primary);
 }
 
-.screening-icon {
-  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-}
+@media (max-width: 900px) {
+  .detail-header,
+  .info-row-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-.interview-icon {
-  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-}
+  .scores-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
-.resume-content {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.8;
-  white-space: pre-wrap;
-}
+  .score-item {
+    justify-content: flex-start;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
 
-.screening-card {
-  padding: 28px 32px;
-  margin-bottom: 20px;
-}
+  .score-item:last-child {
+    border-bottom: 0;
+  }
 
-.report-summary {
-  display: flex;
-  gap: 32px;
-  margin-bottom: 24px;
-}
+  .progress-steps {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
 
-.score-circle {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  flex-shrink: 0;
-}
-
-.score-circle .score-value {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.score-circle .score-label {
-  font-size: 12px;
-  margin-top: 4px;
-  opacity: 0.9;
-}
-
-.summary-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.summary-label {
-  font-size: 13px;
-  color: #9CA3AF;
-  margin-right: 8px;
-}
-
-.report-text {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.8;
-  margin-bottom: 24px;
-}
-
-.report-section {
-  margin-bottom: 24px;
-}
-
-.report-section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 12px 0;
-}
-
-.item-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.item-card {
-  padding: 16px 20px;
-  border-radius: 10px;
-  border-left: 4px solid;
-}
-
-.advantage-card {
-  background: #F0FDF4;
-  border-left-color: #10B981;
-}
-
-.mismatch-card {
-  background: #FFF7ED;
-  border-left-color: #F97316;
-}
-
-.item-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.item-number {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #6B7280;
-  flex-shrink: 0;
-}
-
-.item-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
-.item-detail {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.6;
-  margin: 0 0 8px 0;
-  padding-left: 34px;
-}
-
-.item-evidence {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 13px;
-  color: #6B7280;
-  padding-left: 34px;
-}
-
-.risk-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.risk-card {
-  padding: 16px 20px;
-  border-radius: 10px;
-  border: 1px solid;
-}
-
-.risk-high {
-  background: #FEF2F2;
-  border-color: #FECACA;
-}
-
-.risk-medium {
-  background: #FFFBEB;
-  border-color: #FEF3C7;
-}
-
-.risk-low {
-  background: #F0FDF4;
-  border-color: #BBF7D0;
-}
-
-.risk-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.risk-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.risk-detail {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.follow-up-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.follow-up-card {
-  display: flex;
-  gap: 16px;
-  padding: 16px 20px;
-  background: #F5F3FF;
-  border-radius: 10px;
-  border: 1px solid #EDE9FE;
-}
-
-.follow-up-number {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.follow-up-content {
-  flex: 1;
-}
-
-.follow-up-question {
-  font-size: 14px;
-  font-weight: 500;
-  color: #111827;
-  margin: 0 0 8px 0;
-  line-height: 1.5;
-}
-
-.follow-up-purpose {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #8B5CF6;
-  margin: 0;
-}
-
-.first-interview-card {
-  padding: 28px 32px;
-}
-
-.empty-interview {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 40px 20px;
-  color: #9CA3AF;
-}
-
-.interview-meta {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: #6B7280;
-}
-
-.interview-text {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.8;
-  white-space: pre-wrap;
+  .progress-step {
+    min-width: 92px;
+  }
 }
 </style>

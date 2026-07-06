@@ -7,6 +7,7 @@ import JobNew from '../views/JobNew.vue'
 import CandidateList from '../views/CandidateList.vue'
 import CandidateDetail from '../views/CandidateDetail.vue'
 import CandidateNew from '../views/CandidateNew.vue'
+import Dashboard from '../views/Dashboard.vue'
 
 // 旧页面 - 兼容历史
 import AnalysisList from '../views/AnalysisList.vue'
@@ -16,7 +17,14 @@ import AnalysisDetail from '../views/AnalysisDetail.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/jobs'
+    redirect: '/dashboard'
+  },
+
+  // ============== 工作台 ==============
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: Dashboard
   },
 
   // ============== 新路由：招聘流程 ==============

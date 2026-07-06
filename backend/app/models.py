@@ -31,6 +31,15 @@ class Job(Base):
     headcount = Column(Integer, nullable=False, default=1)
     jd_text = Column(Text, nullable=False)
     status = Column(String(20), nullable=False, default="OPEN")
+
+    # 新增：岗位类型和扩展字段
+    job_type = Column(String(50), nullable=True)  # 岗位类型
+    location = Column(String(100), nullable=True)  # 工作地点
+    salary_range = Column(String(50), nullable=True)  # 薪资范围
+    education_req = Column(String(50), nullable=True)  # 学历要求
+    experience_req = Column(String(50), nullable=True)  # 经验要求
+    parsed_jd_json = Column(Text, nullable=True)  # AI 解析后的结构化 JD
+
     remark = Column(Text, nullable=True)
     deleted = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
@@ -53,6 +62,21 @@ class Candidate(Base):
     second_interview_score = Column(Integer, nullable=True)
     latest_ai_suggestion = Column(String(50), nullable=True)
     remark = Column(Text, nullable=True)
+
+    # 新增：结构化简历字段
+    gender = Column(String(10), nullable=True)  # 性别
+    age = Column(Integer, nullable=True)  # 年龄
+    current_city = Column(String(50), nullable=True)  # 当前城市
+    expected_city = Column(String(50), nullable=True)  # 期望城市
+    job_search_status = Column(String(50), nullable=True)  # 求职状态
+    available_date = Column(String(50), nullable=True)  # 到岗时间
+    expected_salary = Column(String(50), nullable=True)  # 期望薪资
+    education_level = Column(String(50), nullable=True)  # 最高学历
+    graduation_school = Column(String(100), nullable=True)  # 毕业学校
+    major = Column(String(100), nullable=True)  # 专业
+    work_years = Column(Integer, nullable=True)  # 工作年限
+    parsed_resume_json = Column(Text, nullable=True)  # AI 解析后的结构化简历 JSON
+
     deleted = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)

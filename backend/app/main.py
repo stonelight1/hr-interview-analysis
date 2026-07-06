@@ -15,6 +15,7 @@ from app.schemas import (
     ResumeScreeningRequest, FirstInterviewAnalysisRequest,
     InterviewRecordCreate, InterviewRecordResponse,
     CandidateStatusLogResponse, StageReportResponse, SuccessResponse,
+    ParseJDRequest, ParseResumeRequest,
 )
 from app.crud_new import (
     create_job, get_job, get_job_list, update_job, update_job_status, delete_job,
@@ -22,12 +23,16 @@ from app.crud_new import (
     create_stage_report, get_stage_report, get_latest_stage_report,
     create_interview_record, get_latest_interview_record, get_interview_records,
     count_candidates_by_status, count_candidates_by_job,
+    get_dashboard_stats,
 )
 from app.services.resume_screening_service import analyze_resume_screening, compute_content_hash
 from app.services.first_interview_service import analyze_first_interview
+from app.services.second_interview_service import analyze_second_interview
+from app.services.jd_parsing_service import parse_job_description, build_job_update_from_parsed
+from app.services.resume_parsing_service import parse_resume, build_candidate_update_from_parsed
 from app import constants
 
-app = FastAPI(title="HR 面试分析系统", version="2.0.0")
+app = FastAPI(title="AI 招聘筛选与面试评估系统", version="2.0.0")
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -110,6 +115,12 @@ def delete_analysis_endpoint(analysis_id: int, db: Session = Depends(get_db)):
     return {"success": True}
 
 
+# ============== 工作台 Dashboard 接口 ==============
+@app.get("/api/dashboard/stats")
+def get_dashboard_stats_endpoint(db: Session = Depends(get_db)):
+    return get_dashboard_stats(db)
+
+
 # ============== 岗位接口 ==============
 @app.post("/api/jobs", response_model=JobResponse)
 def create_job_endpoint(job_data: JobCreate, db: Session = Depends(get_db)):
@@ -174,6 +185,47 @@ def delete_job_endpoint(job_id: int, db: Session = Depends(get_db)):
     return {"success": True}
 
 
+@app.get("/api/job-types")
+def get_job_types():
+    """获取所有岗位类型"""
+    return {
+        "job_types": list(constants.VALID_JOB_TYPES),
+        "evaluation_focus": constants.JOB_TYPE_EVALUATION_FOCUS,
+    }
+
+
+@app.post("/api/jobs/parse-jd")
+async def parse_jd_endpoint(data: ParseJDRequest):
+    """AI 解析 JD 文本，返回结构化岗位信息（不直接保存）"""
+    try:
+        parsed_jd = await parse_job_description(data.jd_text)
+        return {
+            "success": True,
+            "parsed_jd": parsed_jd,
+            "job_update": build_job_update_from_parsed(parsed_jd),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"JD 解析失败，请稍后重试: {str(e)}")
+
+
+@app.post("/api/candidates/parse-resume")
+async def parse_resume_endpoint(data: ParseResumeRequest):
+    """AI 解析简历文本，返回结构化候选人信息（不直接保存）"""
+    try:
+        parsed_resume = await parse_resume(data.resume_text)
+        return {
+            "success": True,
+            "parsed_resume": parsed_resume,
+            "candidate_update": build_candidate_update_from_parsed(parsed_resume),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"简历解析失败，请稍后重试: {str(e)}")
+
+
 # ============== 候选人接口 ==============
 @app.post("/api/candidates", response_model=CandidateResponse)
 def create_candidate_endpoint(candidate_data: CandidateCreate, db: Session = Depends(get_db)):
@@ -204,6 +256,7 @@ def get_candidate_endpoint(candidate_id: int, db: Session = Depends(get_db)):
     candidate_dict = CandidateDetailResponse.model_validate(db_candidate).model_dump()
     candidate_dict["job_name"] = job.job_name if job else None
     candidate_dict["department"] = job.department if job else None
+    candidate_dict["job_type"] = job.job_type if job else None  # 新增
     return candidate_dict
 
 
@@ -447,10 +500,155 @@ def get_latest_first_interview_analysis_endpoint(candidate_id: int, db: Session 
     return db_report
 
 
+# ============== 复试记录接口 ==============
+@app.post("/api/candidates/{candidate_id}/second-interview-record", response_model=InterviewRecordResponse)
+def create_second_interview_record_endpoint(candidate_id: int, data: InterviewRecordCreate, db: Session = Depends(get_db)):
+    db_candidate = get_candidate(db, candidate_id)
+    if not db_candidate:
+        raise HTTPException(status_code=404, detail="候选人不存在")
+
+    try:
+        db_record = create_interview_record(
+            db=db,
+            candidate_id=candidate_id,
+            job_id=db_candidate.job_id,
+            round_type=constants.ROUND_TYPE_SECOND,
+            record_text=data.record_text,
+            interviewer_name=data.interviewer_name,
+            interview_time=data.interview_time,
+        )
+        return db_record
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/candidates/{candidate_id}/second-interview-record/latest", response_model=InterviewRecordResponse)
+def get_latest_second_interview_record_endpoint(candidate_id: int, db: Session = Depends(get_db)):
+    db_record = get_latest_interview_record(db, candidate_id, constants.ROUND_TYPE_SECOND)
+    if not db_record:
+        raise HTTPException(status_code=404, detail="暂无复试记录")
+    return db_record
+
+
+@app.get("/api/candidates/{candidate_id}/second-interview-record", response_model=dict)
+def list_second_interview_records_endpoint(
+    candidate_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    return get_interview_records(db, candidate_id, round_type=constants.ROUND_TYPE_SECOND, page=page, page_size=page_size)
+
+
+# ============== 复试分析接口 ==============
+@app.post("/api/candidates/{candidate_id}/second-interview-analysis", response_model=StageReportResponse)
+async def trigger_second_interview_analysis_endpoint(candidate_id: int, data: FirstInterviewAnalysisRequest, db: Session = Depends(get_db)):
+    """触发复试分析"""
+    db_candidate = get_candidate(db, candidate_id)
+    if not db_candidate:
+        raise HTTPException(status_code=404, detail="候选人不存在")
+
+    db_job = get_job(db, db_candidate.job_id)
+    if not db_job:
+        raise HTTPException(status_code=404, detail="关联岗位不存在")
+
+    from app.crud_new import get_interview_record
+    db_record = get_interview_record(db, data.interview_record_id)
+    if not db_record or db_record.candidate_id != candidate_id:
+        raise HTTPException(status_code=404, detail="复试记录不存在")
+
+    # 获取初试分析报告
+    first_interview_report = get_latest_stage_report(db, candidate_id, constants.STAGE_FIRST_INTERVIEW)
+    first_interview_report_json = first_interview_report.report_json if first_interview_report else "{}"
+
+    content_hash = compute_content_hash(
+        db_job.jd_text,
+        db_candidate.resume_text,
+        first_interview_report_json,
+        db_record.record_text,
+    )
+
+    if not data.force:
+        existing_report = get_latest_stage_report(db, candidate_id, constants.STAGE_SECOND_INTERVIEW)
+        if existing_report and existing_report.content_hash == content_hash:
+            return existing_report
+
+    from app.crud_new import get_next_report_version
+    report_version = get_next_report_version(db, candidate_id, constants.STAGE_SECOND_INTERVIEW)
+
+    input_snapshot = {
+        "jd_text": db_job.jd_text,
+        "resume_text": db_candidate.resume_text,
+        "first_interview_report": first_interview_report_json,
+        "record_text": db_record.record_text,
+        "interviewer_name": db_record.interviewer_name,
+        "interview_time": str(db_record.interview_time) if db_record.interview_time else None,
+    }
+
+    try:
+        result = await analyze_second_interview(
+            db_job.jd_text,
+            db_candidate.resume_text,
+            first_interview_report_json,
+            db_record.record_text,
+        )
+        report_json = json.dumps(result, ensure_ascii=False)
+
+        db_report = create_stage_report(
+            db=db,
+            candidate_id=candidate_id,
+            job_id=db_candidate.job_id,
+            stage_type=constants.STAGE_SECOND_INTERVIEW,
+            report_version=report_version,
+            report_json=report_json,
+            input_snapshot_json=json.dumps(input_snapshot, ensure_ascii=False),
+            score=result.get("score"),
+            suggestion=result.get("suggestion"),
+            risk_level=result.get("risk_level"),
+            content_hash=content_hash,
+            request_id=data.request_id,
+            status=constants.REPORT_STATUS_SUCCESS,
+        )
+
+        update_candidate_score_summary(
+            db=db,
+            candidate_id=candidate_id,
+            stage_type=constants.STAGE_SECOND_INTERVIEW,
+            score=result.get("score"),
+            suggestion=result.get("suggestion"),
+        )
+
+        return db_report
+    except Exception as e:
+        create_stage_report(
+            db=db,
+            candidate_id=candidate_id,
+            job_id=db_candidate.job_id,
+            stage_type=constants.STAGE_SECOND_INTERVIEW,
+            report_version=report_version,
+            report_json="{}",
+            input_snapshot_json=json.dumps(input_snapshot, ensure_ascii=False),
+            content_hash=content_hash,
+            request_id=data.request_id,
+            status=constants.REPORT_STATUS_FAILED,
+            error_message=str(e),
+        )
+        raise HTTPException(status_code=500, detail=f"复试分析失败: {str(e)}")
+
+
+@app.get("/api/candidates/{candidate_id}/second-interview-analysis/latest", response_model=StageReportResponse)
+def get_latest_second_interview_analysis_endpoint(candidate_id: int, db: Session = Depends(get_db)):
+    db_report = get_latest_stage_report(db, candidate_id, constants.STAGE_SECOND_INTERVIEW)
+    if not db_report:
+        raise HTTPException(status_code=404, detail="暂无复试分析报告")
+    return db_report
+
+
 # ============== 状态日志接口 ==============
 @app.get("/api/candidates/{candidate_id}/status-logs", response_model=list[CandidateStatusLogResponse])
 def get_candidate_status_logs_endpoint(candidate_id: int, db: Session = Depends(get_db)):
-    logs = db.query(constants.CandidateStatusLog).filter(constants.CandidateStatusLog.candidate_id == candidate_id).all()
+    from app.models import CandidateStatusLog
+    logs = db.query(CandidateStatusLog).filter(CandidateStatusLog.candidate_id == candidate_id).all()
     return logs
 
 
