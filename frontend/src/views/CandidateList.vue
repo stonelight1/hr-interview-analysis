@@ -5,9 +5,9 @@
         <h2 class="page-title">{{ pageTitle }}</h2>
         <p class="page-subtitle">{{ pageSubtitle }}</p>
       </div>
-      <el-button type="primary" size="large" @click="goToNew">
+      <el-button plain size="large" @click="goToNew">
         <el-icon><Plus /></el-icon>
-        新增候选人
+        手动新增候选人
       </el-button>
     </div>
 
@@ -27,12 +27,15 @@
             <el-option label="简历待筛选" value="RESUME_PENDING" />
             <el-option label="简历通过" value="RESUME_PASSED" />
             <el-option label="简历淘汰" value="RESUME_REJECTED" />
-            <el-option label="待约初试" value="FIRST_INTERVIEW_PENDING" />
-            <el-option label="初试中" value="FIRST_INTERVIEW_PASSED" />
-            <el-option label="初试淘汰" value="FIRST_INTERVIEW_REJECTED" />
-            <el-option label="待复试" value="SECOND_INTERVIEW_PENDING" />
-            <el-option label="复试通过" value="SECOND_INTERVIEW_PASSED" />
-            <el-option label="复试淘汰" value="SECOND_INTERVIEW_REJECTED" />
+            <el-option label="待安排面试" value="INTERVIEW_WAITING" />
+            <el-option label="面试待进行" value="INTERVIEW_SCHEDULED" />
+            <el-option label="面试完成待决策" value="INTERVIEW_DECISION_PENDING" />
+            <el-option label="面试待进行" value="FIRST_INTERVIEW_PENDING" />
+            <el-option label="面试完成待决策" value="FIRST_INTERVIEW_PASSED" />
+            <el-option label="面试淘汰" value="FIRST_INTERVIEW_REJECTED" />
+            <el-option label="下一轮待进行" value="SECOND_INTERVIEW_PENDING" />
+            <el-option label="面试完成待决策" value="SECOND_INTERVIEW_PASSED" />
+            <el-option label="面试淘汰" value="SECOND_INTERVIEW_REJECTED" />
             <el-option label="已录用" value="HIRED" />
             <el-option label="已放弃" value="ABANDONED" />
             <el-option label="人才库储备" value="TALENT_POOL" />
@@ -60,7 +63,6 @@
         :data="tableData"
         v-loading="loading"
         style="width: 100%"
-        :header-cell-style="{ background: '#F9FAFB', color: '#374151', fontWeight: 600 }"
         stripe
       >
         <el-table-column label="候选人" min-width="110">
@@ -102,18 +104,10 @@
             <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="初试评分" min-width="80" align="center">
+        <el-table-column label="最近面试评分" min-width="110" align="center">
           <template #default="{ row }">
-            <span v-if="row.first_interview_score != null" class="score-num" :style="{ color: getScoreColor(row.first_interview_score) }">
-              {{ row.first_interview_score }}
-            </span>
-            <span v-else class="text-muted">—</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="复试评分" min-width="80" align="center">
-          <template #default="{ row }">
-            <span v-if="row.second_interview_score != null" class="score-num" :style="{ color: getScoreColor(row.second_interview_score) }">
-              {{ row.second_interview_score }}
+            <span v-if="getLatestInterviewScore(row) != null" class="score-num" :style="{ color: getScoreColor(getLatestInterviewScore(row)) }">
+              {{ getLatestInterviewScore(row) }}
             </span>
             <span v-else class="text-muted">—</span>
           </template>
@@ -148,15 +142,15 @@
                 @click="goToScreening(row.id)"
               >筛选</el-button>
               <el-button
-                v-if="row.current_status === 'RESUME_PASSED' || row.current_status === 'FIRST_INTERVIEW_PENDING'"
+                v-if="['RESUME_PASSED', 'INTERVIEW_WAITING', 'INTERVIEW_SCHEDULED', 'FIRST_INTERVIEW_PENDING', 'SECOND_INTERVIEW_PENDING'].includes(row.current_status)"
                 type="warning" link size="small"
                 @click="goToArrangeInterview(row.id)"
-              >约面</el-button>
+              >{{ getPrimaryActionLabel(row.current_status) }}</el-button>
               <el-button
-                v-if="row.current_status === 'FIRST_INTERVIEW_PASSED'"
+                v-if="['INTERVIEW_DECISION_PENDING', 'FIRST_INTERVIEW_PASSED', 'SECOND_INTERVIEW_PASSED'].includes(row.current_status)"
                 type="primary" link size="small"
                 @click="viewDetail(row.id)"
-              >评估</el-button>
+              >决策</el-button>
             </div>
           </template>
         </el-table-column>
@@ -164,15 +158,14 @@
           <div class="empty-state">
             <el-icon :size="48" color="#D1D5DB"><User /></el-icon>
             <p class="empty-title">暂无候选人数据</p>
-            <p class="empty-desc">请先创建招聘岗位，然后粘贴候选人简历，系统会自动完成简历解析与筛选</p>
+            <p class="empty-desc">请从岗位初筛工作台批量导入简历，系统会自动完成简历解析与筛选</p>
             <div class="empty-actions">
-              <el-button type="primary" @click="goToJobNew">
-                <el-icon><Plus /></el-icon>
-                新建岗位
+              <el-button type="primary" @click="goToScreeningWorkbench">
+                进入岗位初筛
               </el-button>
-              <el-button @click="goToNew">
+              <el-button plain @click="goToNew">
                 <el-icon><Plus /></el-icon>
-                新增候选人
+                手动新增候选人
               </el-button>
             </div>
           </div>
@@ -225,7 +218,7 @@ const applyRouteQuery = () => {
 }
 
 // 路由变化时重新筛选
-watch(() => route.query.status, () => {
+watch(() => route.fullPath, () => {
   applyRouteQuery()
   pagination.page = 1
   fetchData()
@@ -242,6 +235,12 @@ const statusTypeMap = {
   RESUME_PENDING: 'warning',
   RESUME_PASSED: 'success',
   RESUME_REJECTED: 'danger',
+  INTERVIEW_WAITING: 'warning',
+  INTERVIEW_SCHEDULED: 'warning',
+  INTERVIEW_DECISION_PENDING: 'warning',
+  FINAL_PASSED: 'success',
+  REJECTED: 'danger',
+  ON_HOLD: 'info',
   FIRST_INTERVIEW_PENDING: 'warning',
   FIRST_INTERVIEW_PASSED: 'success',
   FIRST_INTERVIEW_REJECTED: 'danger',
@@ -258,12 +257,18 @@ const statusLabelMap = {
   RESUME_PENDING: '简历待筛选',
   RESUME_PASSED: '简历通过',
   RESUME_REJECTED: '简历淘汰',
-  FIRST_INTERVIEW_PENDING: '待约初试',
-  FIRST_INTERVIEW_PASSED: '初试通过',
-  FIRST_INTERVIEW_REJECTED: '初试淘汰',
-  SECOND_INTERVIEW_PENDING: '待复试',
-  SECOND_INTERVIEW_PASSED: '复试通过',
-  SECOND_INTERVIEW_REJECTED: '复试淘汰',
+  INTERVIEW_WAITING: '待安排面试',
+  INTERVIEW_SCHEDULED: '面试待进行',
+  INTERVIEW_DECISION_PENDING: '面试完成待决策',
+  FINAL_PASSED: '通过并结束',
+  REJECTED: '已淘汰',
+  ON_HOLD: '暂定',
+  FIRST_INTERVIEW_PENDING: '面试待进行',
+  FIRST_INTERVIEW_PASSED: '面试完成待决策',
+  FIRST_INTERVIEW_REJECTED: '面试淘汰',
+  SECOND_INTERVIEW_PENDING: '下一轮待进行',
+  SECOND_INTERVIEW_PASSED: '面试完成待决策',
+  SECOND_INTERVIEW_REJECTED: '面试淘汰',
   HIRED: '已录用',
   ABANDONED: '已放弃',
   TALENT_POOL: '人才库储备'
@@ -271,28 +276,36 @@ const statusLabelMap = {
 
 const nextActionMap = {
   RESUME_PENDING: '生成简历筛选',
-  RESUME_PASSED: '约初试',
-  FIRST_INTERVIEW_PENDING: '录入初试',
-  FIRST_INTERVIEW_PASSED: '安排复试',
-  SECOND_INTERVIEW_PENDING: '录入复试',
-  SECOND_INTERVIEW_PASSED: '确认录用',
+  RESUME_PASSED: '安排面试',
+  INTERVIEW_WAITING: '安排面试',
+  INTERVIEW_SCHEDULED: '填写记录',
+  INTERVIEW_DECISION_PENDING: 'HR 决策',
+  ON_HOLD: '暂定',
+  REJECTED: '已淘汰',
+  FINAL_PASSED: '已结束',
+  FIRST_INTERVIEW_PENDING: '填写记录',
+  FIRST_INTERVIEW_PASSED: 'HR 决策',
+  SECOND_INTERVIEW_PENDING: '填写记录',
+  SECOND_INTERVIEW_PASSED: 'HR 决策',
   IMPORTED: '待解析简历'
 }
 
 const getStatusType = (s) => statusTypeMap[s] || 'info'
 const getStatusLabel = (s) => statusLabelMap[s] || s
 const getNextAction = (s) => nextActionMap[s] || '—'
+const getLatestInterviewScore = (row) => row.second_interview_score ?? row.first_interview_score ?? null
+const getPrimaryActionLabel = (s) => ['RESUME_PASSED', 'INTERVIEW_WAITING'].includes(s) ? '安排' : '记录'
 
 const getNextActionType = (s) => {
-  if (['RESUME_PENDING', 'FIRST_INTERVIEW_PENDING', 'SECOND_INTERVIEW_PENDING'].includes(s)) return 'warning'
-  if (['RESUME_PASSED', 'FIRST_INTERVIEW_PASSED', 'SECOND_INTERVIEW_PASSED'].includes(s)) return 'success'
+  if (['RESUME_PENDING', 'INTERVIEW_WAITING', 'INTERVIEW_SCHEDULED', 'INTERVIEW_DECISION_PENDING', 'FIRST_INTERVIEW_PENDING', 'SECOND_INTERVIEW_PENDING'].includes(s)) return 'warning'
+  if (['RESUME_PASSED', 'FINAL_PASSED', 'FIRST_INTERVIEW_PASSED', 'SECOND_INTERVIEW_PASSED'].includes(s)) return 'success'
   return 'info'
 }
 
 const getScoreColor = (score) => {
-  if (score >= 80) return '#10B981'
-  if (score >= 60) return '#F59E0B'
-  return '#EF4444'
+  if (score >= 80) return 'var(--color-green)'
+  if (score >= 60) return 'var(--color-amber)'
+  return 'var(--color-red)'
 }
 
 const formatTime = (timeStr) => {
@@ -328,16 +341,18 @@ const fetchData = async () => {
 
 // 页面标题根据筛选状态联动
 const pageTitle = computed(() => {
+  if (route.path === '/interviews') return '面试管理'
   const s = route.query.status
   if (s === 'RESUME_PENDING') return '简历筛选'
-  if (s === 'FIRST_INTERVIEW_PASSED') return '面试评估'
+  if (s === 'FIRST_INTERVIEW_PASSED') return '面试决策'
   return '候选人管理'
 })
 
 const pageSubtitle = computed(() => {
+  if (route.path === '/interviews') return '管理开放式面试流程，由 HR 根据每轮结果决定下一步'
   const s = route.query.status
   if (s === 'RESUME_PENDING') return '查看待筛选简历，使用 AI 快速评估候选人匹配度'
-  if (s === 'FIRST_INTERVIEW_PASSED') return '查看初试通过的候选人，安排复试或做出录用决策'
+  if (s === 'FIRST_INTERVIEW_PASSED') return '查看面试完成待决策的候选人，决定结束、暂定、淘汰或进入下一轮'
   return '查看所有候选人，快速筛选并推进招聘流程'
 })
 
@@ -355,6 +370,7 @@ const handlePageChange = (page) => { pagination.page = page; fetchData() }
 const viewDetail = (id) => router.push(`/candidates/${id}`)
 const goToNew = () => router.push('/candidates/new')
 const goToJobNew = () => router.push('/jobs/new')
+const goToScreeningWorkbench = () => router.push('/screening')
 const goToScreening = (id) => router.push(`/candidates/${id}`)
 const goToArrangeInterview = (id) => router.push(`/candidates/${id}`)
 
@@ -387,7 +403,7 @@ onMounted(() => {
 
 .page-title {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0;
   letter-spacing: 0;
@@ -419,7 +435,7 @@ onMounted(() => {
 .filter-form :deep(.el-form-item__label) {
   font-size: 13px;
   color: var(--color-text-secondary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   padding-bottom: 6px;
 }
 
@@ -447,7 +463,7 @@ onMounted(() => {
 .cell-text {
   font-size: 13px;
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .cell-tag {
@@ -463,13 +479,13 @@ onMounted(() => {
 
 .score-text {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   white-space: nowrap;
 }
 
 .score-num {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
 }
 
 .risk-badge {
@@ -478,12 +494,12 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
-.risk-high { background: #feecec; color: var(--color-red); }
-.risk-medium { background: #fff7db; color: var(--color-amber); }
-.risk-low { background: #e7f4f2; color: var(--color-primary); }
+.risk-high { color: var(--color-red); background: var(--color-red-soft); }
+.risk-medium { color: var(--color-amber); background: var(--color-amber-soft); }
+.risk-low { color: var(--color-primary); background: var(--color-primary-soft); }
 
 .time-cell {
   font-size: 13px;
@@ -517,7 +533,7 @@ onMounted(() => {
 
 .empty-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--color-text-secondary);
   margin-top: 16px;
   margin-bottom: 4px;

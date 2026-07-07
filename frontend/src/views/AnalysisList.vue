@@ -12,7 +12,7 @@
         </el-button>
         <el-button type="primary" size="large" @click="goToNew">
           <el-icon><Plus /></el-icon>
-          新建分析
+          生成 AI 评估报告
         </el-button>
       </div>
     </div>
@@ -119,7 +119,6 @@
         v-loading="loading"
         row-key="id"
         style="width: 100%"
-        :header-cell-style="{ background: '#F9FAFB', color: '#374151', fontWeight: 600 }"
         :row-class-name="getRowClassName"
         @row-click="openPreview"
       >
@@ -212,7 +211,7 @@
             <p class="empty-desc">完成一次面试分析后，报告会出现在这里，方便后续复盘和对比</p>
             <el-button type="primary" @click="goToNew">
               <el-icon><Plus /></el-icon>
-              新建分析
+              生成 AI 评估报告
             </el-button>
           </div>
         </template>
@@ -653,7 +652,7 @@ onMounted(() => {
 
 .page-title {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0;
   letter-spacing: 0;
@@ -687,13 +686,13 @@ onMounted(() => {
 .stat-card:hover {
   transform: translateY(-1px);
   border-color: var(--color-border-strong);
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-icon {
   width: 38px;
   height: 38px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -702,10 +701,10 @@ onMounted(() => {
   margin-top: 2px;
 }
 
-.tone-blue { background: #e8f1ff; color: var(--color-blue); }
-.tone-green { background: #e7f4f2; color: var(--color-primary); }
-.tone-red { background: #feecec; color: var(--color-red); }
-.tone-amber { background: #fff7db; color: var(--color-amber); }
+.tone-blue { background: var(--color-blue-soft); color: var(--color-blue); }
+.tone-green { background: var(--color-primary-soft); color: var(--color-primary); }
+.tone-red { background: var(--color-red-soft); color: var(--color-red); }
+.tone-amber { background: var(--color-amber-soft); color: var(--color-amber); }
 
 .stat-info {
   flex: 1;
@@ -714,7 +713,7 @@ onMounted(() => {
 
 .stat-value {
   font-size: 26px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   line-height: 1.1;
 }
@@ -723,7 +722,7 @@ onMounted(() => {
   font-size: 13px;
   color: var(--color-text-secondary);
   margin-top: 2px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
 }
 
 .stat-hint {
@@ -752,7 +751,7 @@ onMounted(() => {
 .filter-form :deep(.el-form-item__label) {
   font-size: 13px;
   color: var(--color-text-secondary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   padding-bottom: 6px;
 }
 
@@ -774,7 +773,7 @@ onMounted(() => {
 .active-filter-label {
   font-size: 12px;
   color: var(--color-text-muted);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .table-section {
@@ -800,7 +799,7 @@ onMounted(() => {
 
 .toolbar-title span {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
 }
 
@@ -850,7 +849,7 @@ onMounted(() => {
 .candidate-name {
   color: var(--color-text);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -888,7 +887,7 @@ onMounted(() => {
 
 .score-text {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   white-space: nowrap;
 }
 
@@ -901,13 +900,13 @@ onMounted(() => {
   padding: 0 10px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
 }
 
-.risk-high { background: #feecec; color: var(--color-red); }
-.risk-medium { background: #fff7db; color: var(--color-amber); }
-.risk-low { background: #e7f4f2; color: var(--color-primary); }
-.risk-unknown { background: #eef2f7; color: var(--color-text-secondary); }
+.risk-high { background: var(--color-red-soft); color: var(--color-red); }
+.risk-medium { background: var(--color-amber-soft); color: var(--color-amber); }
+.risk-low { background: var(--color-primary-soft); color: var(--color-primary); }
+.risk-unknown { background: var(--color-surface-soft); color: var(--color-text-secondary); }
 
 .time-cell {
   font-size: 13px;
@@ -939,7 +938,7 @@ onMounted(() => {
 
 .empty-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--color-text-secondary);
   margin-top: 16px;
   margin-bottom: 4px;
@@ -971,7 +970,7 @@ onMounted(() => {
 .drawer-kicker {
   font-size: 12px;
   color: var(--color-text-muted);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   margin: 0 0 4px;
 }
 
@@ -999,13 +998,13 @@ onMounted(() => {
 
 .preview-score {
   font-size: 34px;
-  font-weight: 800;
+  font-weight: var(--font-bold);
   line-height: 1;
 }
 
 .preview-score span {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--color-text-muted);
 }
 
@@ -1026,7 +1025,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin-bottom: 10px;
 }
@@ -1130,7 +1129,7 @@ onMounted(() => {
   padding: 14px 24px;
   margin-top: auto;
   border-top: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--color-surface);
 }
 
 :deep(.report-drawer .el-drawer__body) {

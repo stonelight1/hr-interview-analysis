@@ -11,7 +11,7 @@
             <el-icon><DocumentCopy /></el-icon>
             复制报告
           </el-button>
-          <el-button type="danger" plain @click="handleDelete">
+          <el-button v-if="!isStageReport" type="danger" plain @click="handleDelete">
             <el-icon><Delete /></el-icon>
             删除
           </el-button>
@@ -35,8 +35,12 @@
             </div>
           </div>
           <div class="score-panel">
-            <div class="score-value" :style="{ color: getScoreColor(analysis.match_score / 100) }">
-              {{ analysis.match_score ?? 0 }}
+            <div class="score-value">
+              <CountUpNumber
+                :target="analysis.match_score ?? 0"
+                :duration="1200"
+                :color-fn="getScoreColor"
+              />
             </div>
             <div class="score-label">综合匹配度</div>
           </div>
@@ -84,7 +88,8 @@
 
       <div v-if="analysisResult" class="detail-layout">
         <main class="report-stack">
-          <section id="conclusion" class="page-card section-card" v-if="overviewSummary || analysisResult.leader_summary">
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 0 }">
+            <section id="conclusion" class="page-card section-card" v-if="overviewSummary || analysisResult.leader_summary">
             <div class="section-header">
               <div class="section-icon">
                 <el-icon><Document /></el-icon>
@@ -107,7 +112,9 @@
               <p>{{ analysisResult.leader_summary.short_conclusion }}</p>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 1 }">
           <section id="scores" class="page-card section-card" v-if="scoreDetailData.length">
             <div class="section-header">
               <div class="section-icon success-bg">
@@ -139,7 +146,9 @@
               </div>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 2 }">
           <section id="verification" class="page-card section-card" v-if="interviewVerification.length">
             <div class="section-header">
               <div class="section-icon">
@@ -164,7 +173,9 @@
               </div>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 2 }">
           <section id="advantages" class="page-card section-card" v-if="advantages.length">
             <div class="section-header">
               <div class="section-icon success-bg">
@@ -189,7 +200,9 @@
               </article>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 3 }">
           <section id="weaknesses" class="page-card section-card" v-if="weaknesses.length">
             <div class="section-header">
               <div class="section-icon warning-bg">
@@ -214,7 +227,9 @@
               </article>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 4 }">
           <section id="risks" class="page-card section-card" v-if="riskPoints.length">
             <div class="section-header">
               <div class="section-icon danger-bg">
@@ -241,7 +256,9 @@
               </article>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 5 }">
           <section id="questions" class="page-card section-card" v-if="followUpQuestions.length">
             <div class="section-header">
               <div class="section-icon info-bg">
@@ -265,7 +282,9 @@
               </article>
             </div>
           </section>
+          </div>
 
+          <div class="section-animate" :class="{ 'is-visible': sectionVisible }" :style="{ '--stagger-index': 6 }">
           <section id="hr-feedback" class="page-card section-card" v-if="analysisResult.hr_interview_feedback">
             <div class="section-header">
               <div class="section-icon warning-bg">
@@ -337,6 +356,7 @@
               </div>
             </div>
           </section>
+          </div>
         </main>
 
         <aside class="side-panel">
@@ -379,7 +399,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -387,7 +407,8 @@ import {
   TrendCharts, CircleCheck, Warning, WarningFilled,
   QuestionFilled, Aim, InfoFilled, Briefcase, Clock
 } from '@element-plus/icons-vue'
-import { analysisApi } from '../api/analysis.js'
+import { analysisApi, reportApi } from '../api/analysis.js'
+import CountUpNumber from '../components/CountUpNumber.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -395,6 +416,9 @@ const router = useRouter()
 const loading = ref(false)
 const analysis = ref(null)
 const analysisResult = ref(null)
+const sectionVisible = ref(false) // 控制渐进展示
+
+const isStageReport = computed(() => route.query.source === 'stage-report')
 
 const overviewSummary = computed(() => {
   return analysisResult.value?.candidate_overview?.summary || ''
@@ -471,10 +495,12 @@ const navSections = computed(() => {
   return sections
 })
 
-const getScoreColor = (ratio) => {
-  const value = Number(ratio) || 0
-  if (value >= 0.8) return '#10B981'
-  if (value >= 0.6) return '#F59E0B'
+const getScoreColor = (value, maxOrTarget) => {
+  // 支持两种调用方式：getScoreColor(ratio) 和 getScoreColor(value, target)
+  const ratio = maxOrTarget !== undefined ? (value / maxOrTarget) : (value / 100)
+  const numRatio = Number(ratio) || 0
+  if (numRatio >= 0.8) return '#10B981'
+  if (numRatio >= 0.6) return '#F59E0B'
   return '#EF4444'
 }
 
@@ -525,6 +551,16 @@ const formatTime = (timeStr) => {
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
+const parseJson = (value) => {
+  if (!value) return null
+  if (typeof value === 'object') return value
+  try {
+    return JSON.parse(value)
+  } catch (error) {
+    return null
+  }
 }
 
 const scrollToSection = (id) => {
@@ -601,7 +637,7 @@ const copyReport = () => {
 }
 
 const goBack = () => {
-  router.push('/analysis/list')
+  router.push(isStageReport.value ? '/analysis/new' : '/analysis/list')
 }
 
 const handleDelete = () => {
@@ -624,16 +660,41 @@ const handleDelete = () => {
 const fetchAnalysis = async () => {
   loading.value = true
   try {
-    const response = await analysisApi.getById(route.params.id)
-    analysis.value = response.data
-    if (response.data.analysis_result) {
-      try {
-        analysisResult.value = JSON.parse(response.data.analysis_result)
-      } catch (error) {
-        analysisResult.value = null
-        ElMessage.warning('报告结构解析失败')
+    if (isStageReport.value) {
+      const response = await reportApi.getById(route.params.id)
+      const report = response.data
+      const parsedReport = parseJson(report.report_json)
+      const candidateSnapshot = parseJson(report.candidate_snapshot_json)
+      const jdSnapshot = parseJson(report.jd_snapshot_json)
+      const resumeSnapshot = parseJson(report.resume_snapshot_json)
+      const interviewSnapshot = parseJson(report.interview_record_snapshot_json)
+      const overview = parsedReport?.candidate_overview || {}
+      const records = interviewSnapshot?.records || []
+
+      analysis.value = {
+        id: report.id,
+        candidate_name: report.candidate_name || overview.candidate_name || candidateSnapshot?.candidate_name || '未命名候选人',
+        job_title: report.job_name || overview.job_title || jdSnapshot?.position_name || '未填写岗位',
+        match_score: report.score ?? overview.match_score ?? 0,
+        recommendation: report.suggestion || overview.recommendation || '暂缓',
+        risk_level: report.risk_level || overview.risk_level || '中',
+        confidence: overview.confidence || '中',
+        created_at: report.created_at,
+        updated_at: report.updated_at,
+        jd_text: jdSnapshot?.jd_original_text || '',
+        resume_text: resumeSnapshot?.resume_text || '',
+        interview_text: records.map(item => item.record_text).filter(Boolean).join('\n\n'),
+        analysis_result: report.report_json
       }
+      analysisResult.value = parsedReport
+    } else {
+      const response = await analysisApi.getById(route.params.id)
+      analysis.value = response.data
+      analysisResult.value = parseJson(response.data.analysis_result)
     }
+    if (!analysisResult.value) ElMessage.warning('报告结构解析失败')
+    // 数据加载完毕，触发渐进展示
+    sectionVisible.value = true
   } catch (error) {
     ElMessage.error('获取分析报告失败')
   } finally {
@@ -647,6 +708,27 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ---- 渐进式区块动画 ---- */
+.section-animate {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)),
+              transform 0.6s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+  transition-delay: calc(var(--stagger-index, 0) * 0.1s);
+}
+.section-animate.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-animate {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .analysis-detail {
   max-width: 1440px;
   margin: 0 auto;
@@ -680,13 +762,13 @@ onMounted(() => {
 .report-kicker {
   font-size: 12px;
   color: var(--color-text-muted);
-  font-weight: 700;
+  font-weight: var(--font-bold);
   margin: 0 0 6px;
 }
 
 .candidate-name {
   font-size: 26px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0 0 10px;
   letter-spacing: 0;
@@ -718,7 +800,7 @@ onMounted(() => {
 .score-value {
   font-size: 38px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: var(--font-bold);
 }
 
 .score-label {
@@ -764,7 +846,7 @@ onMounted(() => {
 .overview-metric span {
   font-size: 12px;
   color: var(--color-text-muted);
-  font-weight: 700;
+  font-weight: var(--font-bold);
 }
 
 .overview-metric strong {
@@ -783,7 +865,7 @@ onMounted(() => {
   margin-bottom: 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -794,11 +876,11 @@ onMounted(() => {
   height: 32px;
   padding: 0 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   cursor: pointer;
 }
 
@@ -841,18 +923,18 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--color-blue);
-  background: #e8f1ff;
+  background: var(--color-blue-soft);
   flex-shrink: 0;
 }
 
 .success-bg { color: var(--color-primary); background: var(--color-primary-soft); }
-.warning-bg { color: var(--color-amber); background: #fff7db; }
-.danger-bg { color: var(--color-red); background: #feecec; }
-.info-bg { color: var(--color-blue); background: #e8f1ff; }
+.warning-bg { color: var(--color-amber); background: var(--color-amber-soft); }
+.danger-bg { color: var(--color-red); background: var(--color-red-soft); }
+.info-bg { color: var(--color-blue); background: var(--color-blue-soft); }
 
 .section-title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0 0 4px;
 }
@@ -900,7 +982,7 @@ onMounted(() => {
 
 .leader-heading span {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
 }
 
@@ -928,7 +1010,7 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 8px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
 }
 
@@ -972,7 +1054,7 @@ onMounted(() => {
   background: var(--color-primary-soft);
   color: var(--color-primary);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: var(--font-bold);
 }
 
 .evidence-item h4,
@@ -1095,12 +1177,12 @@ onMounted(() => {
 
 .compliance-safe {
   background: var(--color-primary-soft);
-  border: 1px solid #bfe4df;
+  border: 1px solid var(--color-primary-300);
 }
 
 .compliance-danger {
-  background: #feecec;
-  border: 1px solid #fecaca;
+  background: var(--color-red-soft);
+  border: 1px solid var(--color-red-soft);
 }
 
 .compliance-item strong {
@@ -1160,7 +1242,7 @@ onMounted(() => {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 16px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
 }
 
 .empty-detail span {

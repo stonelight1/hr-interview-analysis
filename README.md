@@ -1,6 +1,6 @@
 # AI 招聘筛选与面试评估系统
 
-一个轻量级招聘评估工具，帮助 HR 完成岗位管理、候选人导入、简历筛选、初复试评估和历史报告复盘。
+一个轻量级招聘评估工具，进入系统后优先完成 HR 最核心的工作：基于岗位 JD 批量导入简历，并用 AI 生成初筛排名、推荐面试名单和候选人风险点。
 
 ## 技术栈
 
@@ -95,12 +95,14 @@ npm run dev
 
 ## 功能
 
-1. 招聘工作台：展示在招岗位、待筛选简历、待约面候选人、待复试候选人和高风险候选人。
-2. 岗位管理：支持岗位创建、JD 文本维护、岗位状态管理和 AI 解析 JD。
-3. 候选人管理：支持候选人导入、简历文本维护、AI 解析简历、招聘阶段流转和状态日志查看。
-4. AI 阶段评估：支持简历筛选、初试评估、复试评估，并输出评分、建议、风险点和追问建议。
-5. 历史评估报告：支持筛选、列表查看、右侧快速预览、详情页阅读、复制报告和删除报告。
-6. 前端体验：采用左侧导航工作台布局，统一列表、详情、表单和报告页面的尺寸、颜色、间距与响应式表现。
+1. 岗位初筛工作台：首页只保留岗位信息、批量导入简历、开始 AI 初筛三段主流程。
+2. JD 解析：支持粘贴 JD，也支持上传 PDF / Word / TXT 文件，AI 自动提取岗位名称、岗位类型、地点、经验、学历、必备能力、关键筛选点和淘汰条件。
+3. 批量简历导入：支持一次上传多份 PDF / DOC / DOCX 简历，展示待上传、上传中、解析中、初筛中、完成、失败状态。
+4. 候选人画像：姓名、联系方式、城市、学历、学校、专业、工作年限、最近公司、最近岗位、技能、项目经历等字段优先从简历自动提取；简历未体现的字段保持为空并标记。
+5. 初筛结果页：按匹配度生成候选人排名，展示推荐面试、待定、不推荐、解析失败，并支持分数、学历和结论筛选。
+6. 候选人详情抽屉：左侧查看简历原文，右侧查看 AI 初筛分析、维度评分、匹配理由、风险点和建议面试问题。
+7. 快捷操作：结果列表和详情抽屉可直接执行进入面试、标记待定、淘汰和下载报告。
+8. 更多功能：候选人库、面试管理、报告中心、JD 模板管理等二级入口收进“更多功能”，首页不再堆表单和历史列表。
 
 ## 面试验证评分规则
 
@@ -135,6 +137,35 @@ python -m app.migrate_add_new_fields
 
 首次启动项目时数据库表会自动创建，不需要手动执行迁移脚本。
 
+本次迁移会确保以下任务化表存在：
+
+- `screening_tasks`: 岗位初筛任务
+- `resume_files`: 简历文件和解析状态
+- `candidate_profiles`: 从简历抽取的候选人画像
+- `screening_results`: 候选人与岗位匹配结果
+
+## 岗位初筛接口
+
+核心接口：
+
+```http
+POST /api/screening/jd/parse
+POST /api/screening/jd/parse-file
+POST /api/screening/tasks
+POST /api/screening/tasks/{taskId}/resumes
+POST /api/screening/tasks/{taskId}/start
+GET  /api/screening/tasks/{taskId}/progress
+GET  /api/screening/tasks/{taskId}/results
+GET  /api/screening/results/{resultId}
+PUT  /api/screening/results/{resultId}/status
+```
+
+初筛结论枚举：
+
+- `RECOMMENDED`: 推荐面试
+- `PENDING`: 待定
+- `REJECTED`: 不推荐
+
 ## 环境变量
 
 | 变量名 | 说明 | 默认值 |
@@ -142,3 +173,16 @@ python -m app.migrate_add_new_fields
 | DEEPSEEK_API_KEY | DeepSeek API Key | - |
 | DEEPSEEK_BASE_URL | DeepSeek API 地址 | https://api.deepseek.com |
 | DEEPSEEK_MODEL | 模型名称 | deepseek-v4-flash |
+| HR_API_KEY | 后端 `/api` 访问密钥，配置后请求需带 `X-API-Key` | - |
+| ALLOW_UNAUTHENTICATED_LOCAL | 未配置 `HR_API_KEY` 时是否允许本机访问 | true |
+| CORS_ALLOWED_ORIGINS | 允许跨域访问的前端 Origin，逗号分隔 | http://localhost:5173,http://127.0.0.1:5173 |
+| MAX_RESUME_UPLOAD_FILES | 单次最多上传简历数 | 50 |
+| MAX_RESUME_UPLOAD_BYTES | 单个简历文件最大字节数 | 10485760 |
+
+如果设置了 `HR_API_KEY`，前端需要同步配置：
+
+```bash
+cd frontend
+cp .env.example .env
+# 将 VITE_HR_API_KEY 设置为和后端 HR_API_KEY 相同的值
+```

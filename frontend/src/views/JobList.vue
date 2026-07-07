@@ -59,7 +59,6 @@
         :data="tableData"
         v-loading="loading"
         style="width: 100%"
-        :header-cell-style="{ background: '#F9FAFB', color: '#374151', fontWeight: 600 }"
       >
         <el-table-column prop="job_name" label="岗位名称" min-width="120">
           <template #default="{ row }">
@@ -260,7 +259,7 @@ onMounted(() => {
 
 .page-title {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0;
   letter-spacing: 0;
@@ -292,7 +291,7 @@ onMounted(() => {
 .filter-form :deep(.el-form-item__label) {
   font-size: 13px;
   color: var(--color-text-secondary);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   padding-bottom: 6px;
 }
 
@@ -343,7 +342,7 @@ onMounted(() => {
 
 .empty-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--color-text-secondary);
   margin-top: 16px;
   margin-bottom: 4px;

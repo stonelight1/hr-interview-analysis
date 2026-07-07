@@ -52,11 +52,11 @@
         </div>
         <div class="stat-card">
           <div class="stat-value">{{ job.first_interview_passed_count }}</div>
-          <div class="stat-label">初试通过</div>
+          <div class="stat-label">面试推进</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">{{ job.second_interview_passed_count }}</div>
-          <div class="stat-label">复试通过</div>
+          <div class="stat-label">后续通过</div>
         </div>
       </div>
     </div>
@@ -77,7 +77,6 @@
         :data="candidates"
         v-loading="loadingCandidates"
         style="width: 100%"
-        :header-cell-style="{ background: '#F9FAFB', color: '#374151', fontWeight: 600 }"
       >
         <el-table-column prop="candidate_name" label="候选人" min-width="100">
           <template #default="{ row }">
@@ -101,9 +100,9 @@
             <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="初试评分" min-width="90">
+        <el-table-column label="面试评分" min-width="90">
           <template #default="{ row }">
-            <span v-if="row.first_interview_score != null" class="score-text" :style="{ color: getScoreColor(row.first_interview_score) }">{{ row.first_interview_score }}分</span>
+            <span v-if="getLatestInterviewScore(row) != null" class="score-text" :style="{ color: getScoreColor(getLatestInterviewScore(row)) }">{{ getLatestInterviewScore(row) }}分</span>
             <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
@@ -158,6 +157,12 @@ const candidateStatusTypeMap = {
   RESUME_PENDING: 'warning',
   RESUME_PASSED: 'success',
   RESUME_REJECTED: 'danger',
+  INTERVIEW_WAITING: 'warning',
+  INTERVIEW_SCHEDULED: 'warning',
+  INTERVIEW_DECISION_PENDING: 'warning',
+  FINAL_PASSED: 'success',
+  REJECTED: 'danger',
+  ON_HOLD: 'info',
   FIRST_INTERVIEW_PENDING: 'warning',
   FIRST_INTERVIEW_PASSED: 'success',
   FIRST_INTERVIEW_REJECTED: 'danger',
@@ -174,12 +179,18 @@ const candidateStatusLabelMap = {
   RESUME_PENDING: '简历待筛选',
   RESUME_PASSED: '简历通过',
   RESUME_REJECTED: '简历淘汰',
-  FIRST_INTERVIEW_PENDING: '待约初试',
-  FIRST_INTERVIEW_PASSED: '初试通过',
-  FIRST_INTERVIEW_REJECTED: '初试淘汰',
-  SECOND_INTERVIEW_PENDING: '待复试',
-  SECOND_INTERVIEW_PASSED: '复试通过',
-  SECOND_INTERVIEW_REJECTED: '复试淘汰',
+  INTERVIEW_WAITING: '待安排面试',
+  INTERVIEW_SCHEDULED: '面试待进行',
+  INTERVIEW_DECISION_PENDING: '面试完成待决策',
+  FINAL_PASSED: '通过并结束',
+  REJECTED: '已淘汰',
+  ON_HOLD: '暂定',
+  FIRST_INTERVIEW_PENDING: '面试待进行',
+  FIRST_INTERVIEW_PASSED: '面试完成待决策',
+  FIRST_INTERVIEW_REJECTED: '面试淘汰',
+  SECOND_INTERVIEW_PENDING: '下一轮待进行',
+  SECOND_INTERVIEW_PASSED: '面试完成待决策',
+  SECOND_INTERVIEW_REJECTED: '面试淘汰',
   HIRED: '已录用',
   ABANDONED: '已放弃',
   TALENT_POOL: '人才库储备'
@@ -187,6 +198,7 @@ const candidateStatusLabelMap = {
 
 const getCandidateStatusType = (status) => candidateStatusTypeMap[status] || 'info'
 const getCandidateStatusLabel = (status) => candidateStatusLabelMap[status] || status
+const getLatestInterviewScore = (row) => row.second_interview_score ?? row.first_interview_score ?? null
 const getScoreColor = (score) => {
   if (score >= 80) return '#059669'
   if (score >= 60) return '#d97706'
@@ -281,7 +293,7 @@ onMounted(() => {
 
 .job-name {
   font-size: 26px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0 0 12px 0;
   letter-spacing: 0;
@@ -322,7 +334,7 @@ onMounted(() => {
 
 .stat-value {
   font-size: 26px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   line-height: 1.2;
 }
@@ -331,7 +343,7 @@ onMounted(() => {
   font-size: 13px;
   color: var(--color-text-secondary);
   margin-top: 4px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
 }
 
 .jd-card {
@@ -348,7 +360,7 @@ onMounted(() => {
 
 .section-title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0;
 }
@@ -384,7 +396,7 @@ onMounted(() => {
 
 .score-text {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   white-space: nowrap;
 }
 
@@ -398,7 +410,7 @@ onMounted(() => {
 
 .empty-title {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   color: var(--color-text-secondary);
   margin-top: 16px;
   margin-bottom: 4px;

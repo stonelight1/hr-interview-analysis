@@ -166,7 +166,7 @@ const goBack = () => {
 
 .page-title {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: var(--font-bold);
   color: var(--color-text);
   margin: 0;
   letter-spacing: 0;
@@ -208,7 +208,7 @@ const goBack = () => {
 :deep(.el-form-item__label) {
   font-size: 14px;
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: var(--font-semibold);
   margin-bottom: 8px;
 }
 

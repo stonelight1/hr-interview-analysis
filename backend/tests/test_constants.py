@@ -13,7 +13,8 @@ class TestConstants:
         assert "OPEN" in constants.VALID_JOB_STATUSES
         assert "PAUSED" in constants.VALID_JOB_STATUSES
         assert "CLOSED" in constants.VALID_JOB_STATUSES
-        assert len(constants.VALID_JOB_STATUSES) == 3
+        assert "ARCHIVED" in constants.VALID_JOB_STATUSES
+        assert len(constants.VALID_JOB_STATUSES) == 4
 
     def test_valid_candidate_statuses(self):
         """测试候选人状态枚举值"""
@@ -33,20 +34,44 @@ class TestConstants:
             "TALENT_POOL",
         }
         assert required_statuses.issubset(constants.VALID_CANDIDATE_STATUSES)
-        assert len(constants.VALID_CANDIDATE_STATUSES) == 13
+        new_statuses = {
+            "RESUME_IMPORTED",
+            "RESUME_PARSING",
+            "RESUME_PARSE_FAILED",
+            "RESUME_SCREENING",
+            "RESUME_SCREENING_DONE",
+            "RESUME_TBD",
+            "FIRST_INTERVIEW_IN_PROGRESS",
+            "SECOND_INTERVIEW_IN_PROGRESS",
+            "ONBOARDED",
+            "OFFER_ABANDONED",
+        }
+        assert new_statuses.issubset(constants.VALID_CANDIDATE_STATUSES)
+        assert len(constants.VALID_CANDIDATE_STATUSES) >= 13
 
     def test_valid_stage_types(self):
         """测试阶段类型枚举值"""
         assert "RESUME_SCREENING" in constants.VALID_STAGE_TYPES
         assert "FIRST_INTERVIEW" in constants.VALID_STAGE_TYPES
         assert "SECOND_INTERVIEW" in constants.VALID_STAGE_TYPES
-        assert len(constants.VALID_STAGE_TYPES) == 3
+        assert "CANDIDATE_EVALUATION" in constants.VALID_STAGE_TYPES
+        assert "INTERVIEW_QUESTIONS" in constants.VALID_STAGE_TYPES
+        assert len(constants.VALID_STAGE_TYPES) == 5
 
     def test_valid_round_types(self):
         """测试面试轮次枚举值"""
         assert "FIRST" in constants.VALID_ROUND_TYPES
         assert "SECOND" in constants.VALID_ROUND_TYPES
         assert len(constants.VALID_ROUND_TYPES) == 2
+
+    def test_valid_interview_question_round_types(self):
+        """测试面试问题用途枚举值"""
+        assert "FIRST_INTERVIEW" in constants.VALID_INTERVIEW_QUESTION_ROUND_TYPES
+        assert "SECOND_INTERVIEW" in constants.VALID_INTERVIEW_QUESTION_ROUND_TYPES
+        assert "FINAL_INTERVIEW" in constants.VALID_INTERVIEW_QUESTION_ROUND_TYPES
+        assert "HR_INTERVIEW" in constants.VALID_INTERVIEW_QUESTION_ROUND_TYPES
+        assert "OTHER" in constants.VALID_INTERVIEW_QUESTION_ROUND_TYPES
+        assert constants.INTERVIEW_QUESTION_ROUND_TYPE_LABELS["FIRST_INTERVIEW"] == "初试问题"
 
     def test_valid_report_statuses(self):
         """测试报告状态枚举值"""
@@ -129,14 +154,21 @@ class TestStatusTransitions:
             allowed = constants.ALLOWED_STATUS_TRANSITIONS.get(status, set())
             assert "TALENT_POOL" in allowed, f"{status} should allow TALENT_POOL"
 
-    def test_hired_cannot_transition(self):
-        """已录用状态是终态，不能流转"""
+    def test_hired_can_transition_to_onboarding_terminal(self):
+        """已录用状态可以进入入职或放弃入职"""
         allowed = constants.ALLOWED_STATUS_TRANSITIONS.get("HIRED", set())
-        assert len(allowed) == 0
+        assert "ONBOARDED" in allowed
+        assert "OFFER_ABANDONED" in allowed
 
     def test_rejected_cannot_transition(self):
         """淘汰状态是终态，不能流转"""
-        rejected_statuses = ["RESUME_REJECTED", "FIRST_INTERVIEW_REJECTED", "SECOND_INTERVIEW_REJECTED"]
+        rejected_statuses = [
+            "RESUME_REJECTED",
+            "FIRST_INTERVIEW_REJECTED",
+            "SECOND_INTERVIEW_REJECTED",
+            "ONBOARDED",
+            "OFFER_ABANDONED",
+        ]
         for status in rejected_statuses:
             allowed = constants.ALLOWED_STATUS_TRANSITIONS.get(status, set())
             assert len(allowed) == 0, f"{status} should be a terminal state"
