@@ -140,6 +140,31 @@
             </div>
           </section>
 
+          <section id="verification" class="page-card section-card" v-if="interviewVerification.length">
+            <div class="section-header">
+              <div class="section-icon">
+                <el-icon><Aim /></el-icon>
+              </div>
+              <div>
+                <h3 class="section-title">面试验证</h3>
+                <p class="section-subtitle">核对简历声称是否被面试回答证明</p>
+              </div>
+            </div>
+
+            <div class="verification-list">
+              <div v-for="(item, index) in interviewVerification" :key="index" class="verification-item">
+                <div class="verification-head">
+                  <strong>{{ item.claim || '未命名能力点' }}</strong>
+                  <el-tag :type="getVerificationStatusType(item.status)" effect="light">
+                    {{ getVerificationStatusText(item.status) }}
+                  </el-tag>
+                </div>
+                <p><span>面试证据：</span>{{ item.interview_evidence || '信息不足' }}</p>
+                <p v-if="item.score_impact"><span>评分影响：</span>{{ item.score_impact }}</p>
+              </div>
+            </div>
+          </section>
+
           <section id="advantages" class="page-card section-card" v-if="advantages.length">
             <div class="section-header">
               <div class="section-icon success-bg">
@@ -379,6 +404,11 @@ const advantages = computed(() => analysisResult.value?.candidate_analysis?.adva
 const weaknesses = computed(() => analysisResult.value?.candidate_analysis?.weaknesses || [])
 const riskPoints = computed(() => analysisResult.value?.candidate_analysis?.risk_points || [])
 const followUpQuestions = computed(() => analysisResult.value?.follow_up_questions || [])
+const interviewVerification = computed(() => {
+  const items = analysisResult.value?.interview_verification
+  return Array.isArray(items) ? items : []
+})
+const isVerificationScoring = computed(() => analysisResult.value?.scoring_model?.version === 'interview_verification_v1')
 
 const advantageCount = computed(() => advantages.value.length)
 const weaknessCount = computed(() => weaknesses.value.length)
@@ -410,10 +440,10 @@ const scoreDetailData = computed(() => {
   if (!analysisResult.value?.score_detail) return []
 
   const dimensionNames = {
-    job_experience_match: '岗位经验匹配',
-    industry_product_match: '行业/产品理解',
-    communication_ability: '沟通表达能力',
-    stability_motivation: '稳定性与求职动机',
+    job_experience_match: isVerificationScoring.value ? '岗位核心能力验证' : '岗位经验匹配',
+    industry_product_match: isVerificationScoring.value ? '简历真实性/经历一致性' : '行业/产品理解',
+    communication_ability: isVerificationScoring.value ? '问题解决与案例深度' : '沟通表达能力',
+    stability_motivation: isVerificationScoring.value ? '沟通表达与稳定性' : '稳定性与求职动机',
     salary_arrival_match: '薪资/到岗匹配',
     risk_control: '风险控制'
   }
@@ -432,6 +462,7 @@ const navSections = computed(() => {
     sections.push({ id: 'conclusion', label: '结论', icon: Document })
   }
   if (scoreDetailData.value.length) sections.push({ id: 'scores', label: '评分', icon: TrendCharts })
+  if (interviewVerification.value.length) sections.push({ id: 'verification', label: '验证', icon: Aim })
   if (advantages.value.length) sections.push({ id: 'advantages', label: '优势', icon: CircleCheck })
   if (weaknesses.value.length) sections.push({ id: 'weaknesses', label: '不足', icon: Warning })
   if (riskPoints.value.length) sections.push({ id: 'risks', label: '风险', icon: WarningFilled })
@@ -452,6 +483,24 @@ const getRiskType = (level) => {
   if (level === '中') return 'warning'
   if (!level) return 'info'
   return 'danger'
+}
+
+const getVerificationStatusText = (status) => {
+  const map = {
+    VERIFIED: '已验证',
+    PARTIAL: '部分验证',
+    MISSING: '缺少证据',
+    CONTRADICTED: '存在矛盾',
+    UNVERIFIED: '未验证'
+  }
+  return map[status] || '未验证'
+}
+
+const getVerificationStatusType = (status) => {
+  if (status === 'VERIFIED') return 'success'
+  if (status === 'PARTIAL' || status === 'UNVERIFIED') return 'warning'
+  if (status === 'MISSING' || status === 'CONTRADICTED') return 'danger'
+  return 'info'
 }
 
 const getRiskLevelClass = (level) => {
@@ -888,6 +937,7 @@ onMounted(() => {
 }
 
 .evidence-list,
+.verification-list,
 .risk-list,
 .question-list,
 .feedback-stack {
@@ -945,6 +995,36 @@ onMounted(() => {
   color: var(--color-text-muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.verification-item {
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-soft);
+}
+
+.verification-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.verification-head strong {
+  color: var(--color-text);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.verification-item p {
+  margin: 6px 0 0;
+}
+
+.verification-item p span {
+  color: var(--color-text);
+  font-weight: var(--font-semibold);
 }
 
 .risk-item {

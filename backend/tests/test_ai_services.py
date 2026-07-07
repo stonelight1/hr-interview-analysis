@@ -11,6 +11,10 @@ from app.services.resume_screening_service import (
 from app.services.first_interview_service import (
     validate_first_interview_report,
 )
+from app.services.analysis_service import (
+    evaluate_interview_quality,
+    validate_and_fix_analysis,
+)
 
 
 class TestCleanJsonText:
@@ -248,3 +252,121 @@ class TestValidateFirstInterviewReport:
         assert "next_round_focus" in result
         assert result["risk_points"] == []
         assert result["next_round_focus"] == []
+
+
+class TestCandidateEvaluationScoring:
+    """测试综合评估报告的面试验证评分规则"""
+
+    def _high_score_report(self):
+        return {
+            "candidate_overview": {
+                "candidate_name": "张三",
+                "job_title": "电商客服",
+                "summary": "纸面条件较好",
+                "match_score": 100,
+                "recommendation": "强烈建议进入下一轮",
+                "risk_level": "低",
+                "confidence": "高",
+            },
+            "score_detail": {
+                "job_experience_match": {"score": 35, "max_score": 35, "reason": "模型认为经验匹配"},
+                "industry_product_match": {"score": 20, "max_score": 20, "reason": "模型认为经历一致"},
+                "communication_ability": {"score": 20, "max_score": 20, "reason": "模型认为案例充分"},
+                "stability_motivation": {"score": 10, "max_score": 10, "reason": "模型认为稳定"},
+                "salary_arrival_match": {"score": 10, "max_score": 10, "reason": "模型认为匹配"},
+                "risk_control": {"score": 5, "max_score": 5, "reason": "模型认为风险低"},
+            },
+            "interview_verification": [],
+            "candidate_analysis": {
+                "advantages": [],
+                "weaknesses": [],
+                "risk_points": [],
+            },
+            "follow_up_questions": [],
+            "hr_interview_feedback": {
+                "overall_comment": "",
+                "strengths": [],
+                "improvements": [],
+                "missed_questions": [],
+                "compliance_risks": [],
+            },
+            "leader_summary": {
+                "short_conclusion": "",
+                "decision": "可复试",
+            },
+        }
+
+    def test_all_digit_interview_caps_score(self):
+        report = self._high_score_report()
+        interview_text = "HR：你介绍一下自己。\n候选人：1\nHR：你做过什么平台？\n候选人：1"
+
+        result = validate_and_fix_analysis(report, interview_text)
+
+        assert result["candidate_overview"]["match_score"] == 35
+        assert result["candidate_overview"]["recommendation"] == "不建议"
+        assert result["candidate_overview"]["risk_level"] == "高"
+        assert result["candidate_overview"]["confidence"] == "低"
+        assert result["leader_summary"]["decision"] == "不推荐"
+        assert result["scoring_adjustment"]["applied_caps"][0]["cap"] == 35
+        assert result["candidate_analysis"]["risk_points"][0]["risk"] == "面试验证不足"
+
+    def test_core_claim_contradiction_caps_score(self):
+        report = self._high_score_report()
+        report["interview_verification"] = [
+            {
+                "claim": "简历声称熟悉京东、拼多多客服后台",
+                "interview_evidence": "候选人表示没有实际操作过相关后台",
+                "status": "CONTRADICTED",
+                "is_core": True,
+                "score_impact": "核心经历矛盾",
+            }
+        ]
+        interview_text = "\n".join([
+            "候选人：我之前主要处理淘宝售前咨询，每天会接待客户并记录问题。",
+            "候选人：遇到投诉时我会先安抚情绪，再核对订单和售后政策。",
+            "候选人：如果是物流问题，我会联系仓库和快递确认节点后回复客户。",
+            "候选人：我对京东和拼多多后台没有实际操作经验，需要重新学习。",
+        ])
+
+        result = validate_and_fix_analysis(report, interview_text)
+
+        assert result["candidate_overview"]["match_score"] == 45
+        assert result["candidate_overview"]["recommendation"] == "不建议"
+        cap_codes = {item["code"] for item in result["scoring_adjustment"]["applied_caps"]}
+        assert "CORE_CLAIM_CONTRADICTED" in cap_codes
+
+    def test_good_interview_keeps_dimension_score(self):
+        report = self._high_score_report()
+        report["interview_verification"] = [
+            {
+                "claim": "具备电商客服售后处理经验",
+                "interview_evidence": "候选人能说明投诉处理、订单核对和售后协同流程",
+                "status": "VERIFIED",
+                "is_core": True,
+                "score_impact": "支持高分",
+            }
+        ]
+        interview_text = "\n".join([
+            "候选人：我做过两年电商客服，主要负责售前咨询、订单跟进和售后投诉处理。",
+            "候选人：遇到客户投诉时，我会先确认订单信息，再判断是物流、产品还是安装问题。",
+            "候选人：如果涉及退款，我会按照平台规则提交凭证，并同步客户预计处理时间。",
+            "候选人：我也会复盘高频问题，整理话术给新人使用，减少重复咨询。",
+        ])
+
+        result = validate_and_fix_analysis(report, interview_text)
+
+        assert result["candidate_overview"]["match_score"] == 100
+        assert result["candidate_overview"]["recommendation"] == "强烈建议进入下一轮"
+        assert result["scoring_adjustment"]["applied_caps"] == []
+
+    def test_interview_quality_detects_meaningless_answers(self):
+        quality = evaluate_interview_quality("候选人：1\n候选人：1\n候选人：1")
+
+        assert quality["score_cap"] == 35
+        assert quality["valid_answer_count"] == 0
+
+    def test_interview_quality_ignores_hr_only_questions(self):
+        quality = evaluate_interview_quality("HR：你介绍一下自己。\n面试官：你做过哪些平台？")
+
+        assert quality["score_cap"] == 35
+        assert quality["valid_answer_count"] == 0
